@@ -1,9 +1,8 @@
+import os from 'os'
 import si from 'systeminformation'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { winHelper } from './winhelper'
 import { isWindows } from './platform'
-
-const execAsync = promisify(exec)
+import { withTimeout } from './perf'
 
 export interface ProcInfo {
   pid: number
@@ -15,22 +14,34 @@ export interface ProcInfo {
   priority: number
 }
 
-// Listing processes is one of the most expensive queries on Windows, so concurrent or
-// rapid callers (overview + process tab) share one result for a few seconds.
+// Overview and process tab ask at the same time; they share one result for a few seconds.
 let cached: { at: number; list: Promise<ProcInfo[]> } | null = null
-const CACHE_MS = 4000
+const CACHE_MS = 3000
 
 export function listProcesses(): Promise<ProcInfo[]> {
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.list
-  const list = queryProcesses()
+  const list = withTimeout(queryProcesses(), 12000, [] as ProcInfo[])
   cached = { at: Date.now(), list }
-  list.catch(() => {
-    cached = null
-  })
   return list
 }
 
 async function queryProcesses(): Promise<ProcInfo[]> {
+  const total = os.totalmem()
+  if (isWindows) {
+    // Process.GetProcesses in the helper: fast, no WMI (WMI is what hung before)
+    const raw = await winHelper.request<{ pid: number; name: string; cpu: number; mem: number }[]>('processes', {}, 30000)
+    return raw
+      .map((p) => ({
+        pid: p.pid,
+        name: p.name,
+        cpu: p.cpu,
+        memPercent: (p.mem / total) * 100,
+        memMB: p.mem / 1024 ** 2,
+        user: '',
+        priority: 0
+      }))
+      .sort((a, b) => b.cpu - a.cpu || b.memMB - a.memMB)
+  }
   const data = await si.processes()
   return data.list
     .map((p) => ({
@@ -47,26 +58,12 @@ async function queryProcesses(): Promise<ProcInfo[]> {
 
 export async function killProcess(pid: number): Promise<void> {
   cached = null
-  if (isWindows) {
-    await execAsync(`taskkill /PID ${pid} /F`)
-  } else {
-    process.kill(pid, 'SIGTERM')
-  }
+  if (isWindows) await winHelper.request('kill', { pid })
+  else process.kill(pid, 'SIGTERM')
 }
 
-const PRIORITY_MAP: Record<string, string> = {
-  low: 'idle',
-  belownormal: 'belownormal',
-  normal: 'normal',
-  abovenormal: 'abovenormal',
-  high: 'high',
-  realtime: 'realtime'
-}
-
-export async function setProcessPriority(pid: number, level: keyof typeof PRIORITY_MAP): Promise<void> {
+export async function setProcessPriority(pid: number, level: string): Promise<void> {
   if (!isWindows) throw new Error('Priorität setzen wird nur unter Windows unterstützt')
-  const wmicLevel = PRIORITY_MAP[level]
-  await execAsync(
-    `wmic process where ProcessId=${pid} CALL setpriority "${wmicLevel}"`
-  )
+  cached = null
+  await winHelper.request('setPriority', { pid, arg: level })
 }

@@ -88,6 +88,22 @@ try {
     console.log(cmd, r.ok ? 'ok' : 'error (expected without audio hardware)', JSON.stringify(r.ok ? r.data : r.error).slice(0, 160))
   }
 
+  // system data for the tiles (these replaced WMI/systeminformation, which hung on some PCs)
+  const net = await ask(h, 'net')
+  console.log('net', JSON.stringify(net).slice(0, 200))
+  if (!net.ok || typeof net.data.rx !== 'number') throw new Error('net failed')
+  const drives = await ask(h, 'drives')
+  console.log('drives', JSON.stringify(drives).slice(0, 200))
+  if (!drives.ok || !Array.isArray(drives.data) || drives.data.length === 0) throw new Error('drives failed')
+  await ask(h, 'processes')
+  await wait(500)
+  const t1 = Date.now()
+  const procs = await ask(h, 'processes')
+  console.log(`processes: ${procs.ok ? procs.data.length : 'ERR'} in ${Date.now() - t1} ms`, JSON.stringify(procs.ok ? procs.data.slice(0, 2) : procs.error).slice(0, 200))
+  if (!procs.ok || procs.data.length < 10) throw new Error('processes failed')
+  const gpu = await ask(h, 'gpu')
+  console.log('gpu (no GPU counters on the runner is fine)', JSON.stringify(gpu).slice(0, 200))
+
   // 2) the 500 clicks/s clicker thread: start, count, stop
   const start = await ask(h, 'clickStart', { button: 'left', double: false, move: false, x: 0, y: 0, interval: 2, jitter: 0, limit: 0 })
   if (!start.ok) throw new Error('clickStart failed: ' + JSON.stringify(start))

@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -350,6 +352,120 @@ namespace Znerol {
     }
   }
 
+  // Cheap system facts without WMI (WMI queries were what made things slow or hang).
+  public static class Sys {
+    static readonly Dictionary<int, TimeSpan> lastCpu = new Dictionary<int, TimeSpan>();
+    static DateTime lastAt = DateTime.MinValue;
+
+    const uint HWND_BROADCAST = 0xFFFF;
+    const uint WM_SYSCOMMAND = 0x0112;
+    const int SC_MONITORPOWER = 0xF170;
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    public static string Net() {
+      long rx = 0, tx = 0, best = -1;
+      string name = "";
+      foreach (var ni in NetworkInterface.GetAllNetworkInterfaces()) {
+        try {
+          if (ni.OperationalStatus != OperationalStatus.Up) continue;
+          if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback || ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+          var st = ni.GetIPStatistics();
+          rx += st.BytesReceived;
+          tx += st.BytesSent;
+          if (st.BytesReceived > best) { best = st.BytesReceived; name = ni.Name; }
+        } catch { }
+      }
+      return "{\"rx\":" + rx + ",\"tx\":" + tx + ",\"iface\":" + Win.J(name) + "}";
+    }
+
+    public static string Drives() {
+      var sb = new StringBuilder("[");
+      bool first = true;
+      foreach (var d in DriveInfo.GetDrives()) {
+        try {
+          if (!d.IsReady || d.DriveType != DriveType.Fixed) continue;
+          if (!first) sb.Append(',');
+          first = false;
+          sb.Append("{\"fs\":").Append(Win.J(d.Name.TrimEnd('\\'))).Append(",\"size\":").Append(d.TotalSize).Append(",\"free\":").Append(d.TotalFreeSpace).Append('}');
+        } catch { }
+      }
+      return sb.Append(']').ToString();
+    }
+
+    // CPU % per process from the change of TotalProcessorTime since the previous call
+    public static string Processes() {
+      var now = DateTime.UtcNow;
+      double elapsed = lastAt == DateTime.MinValue ? 0 : (now - lastAt).TotalMilliseconds;
+      int cores = Math.Max(1, Environment.ProcessorCount);
+      var seen = new Dictionary<int, TimeSpan>();
+      var sb = new StringBuilder("[");
+      bool first = true;
+      foreach (var p in Process.GetProcesses()) {
+        try {
+          if (p.Id == 0) continue;
+          double cpu = 0;
+          try {
+            var t = p.TotalProcessorTime;
+            seen[p.Id] = t;
+            TimeSpan prev;
+            if (elapsed > 0 && lastCpu.TryGetValue(p.Id, out prev)) cpu = (t - prev).TotalMilliseconds / elapsed / cores * 100.0;
+          } catch { }
+          long mem = 0;
+          try { mem = p.WorkingSet64; } catch { }
+          if (!first) sb.Append(',');
+          first = false;
+          sb.Append("{\"pid\":").Append(p.Id)
+            .Append(",\"name\":").Append(Win.J(p.ProcessName))
+            .Append(",\"cpu\":").Append(Math.Max(0, cpu).ToString("0.##", CultureInfo.InvariantCulture))
+            .Append(",\"mem\":").Append(mem).Append('}');
+        } catch { } finally { p.Dispose(); }
+      }
+      lastCpu.Clear();
+      foreach (var kv in seen) lastCpu[kv.Key] = kv.Value;
+      lastAt = now;
+      return sb.Append(']').ToString();
+    }
+
+    public static void Kill(int pid) {
+      using (var p = Process.GetProcessById(pid)) p.Kill();
+    }
+
+    public static void SetPriority(int pid, string level) {
+      ProcessPriorityClass c = ProcessPriorityClass.Normal;
+      if (level == "low") c = ProcessPriorityClass.Idle;
+      else if (level == "belownormal") c = ProcessPriorityClass.BelowNormal;
+      else if (level == "abovenormal") c = ProcessPriorityClass.AboveNormal;
+      else if (level == "high") c = ProcessPriorityClass.High;
+      else if (level == "realtime") c = ProcessPriorityClass.RealTime;
+      using (var p = Process.GetProcessById(pid)) p.PriorityClass = c;
+    }
+
+    // GPU load like Task Manager: sum of the 3D engine counters of all processes.
+    static List<PerformanceCounter> gpuCounters;
+    static DateTime gpuListAt = DateTime.MinValue;
+
+    public static string Gpu() {
+      if (gpuCounters == null || (DateTime.UtcNow - gpuListAt).TotalSeconds > 30) {
+        if (gpuCounters != null) foreach (var c in gpuCounters) c.Dispose();
+        gpuCounters = new List<PerformanceCounter>();
+        var cat = new PerformanceCounterCategory("GPU Engine");
+        foreach (var inst in cat.GetInstanceNames()) {
+          if (inst.EndsWith("engtype_3D")) gpuCounters.Add(new PerformanceCounter("GPU Engine", "Utilization Percentage", inst, true));
+        }
+        foreach (var c in gpuCounters) { try { c.NextValue(); } catch { } }
+        gpuListAt = DateTime.UtcNow;
+      }
+      double sum = 0;
+      foreach (var c in gpuCounters) { try { sum += c.NextValue(); } catch { } }
+      return "{\"load\":" + Math.Min(100.0, sum).ToString("0.#", CultureInfo.InvariantCulture) + "}";
+    }
+
+    // Monitors off, PC keeps running; any mouse move or key wakes them again.
+    public static void MonitorOff() {
+      PostMessage(new IntPtr(HWND_BROADCAST), WM_SYSCOMMAND, new IntPtr(SC_MONITORPOWER), new IntPtr(2));
+    }
+  }
+
   // Autoclicker loop on its own thread: 1 ms timer resolution + SendInput, so up to
   // ~500 clicks per second are possible without Node/IPC in the hot path.
   public static class Clicker {
@@ -556,6 +672,15 @@ while ($true) {
       'clickStart' { [Znerol.Clicker]::Start([string]$req.button, [bool]$req.double, [bool]$req.move, [int]$req.x, [int]$req.y, [double]$req.interval, [double]$req.jitter, [long]$req.limit) }
       'clickStop' { [Znerol.Clicker]::Stop() }
       'clickStatus' { $data = [Znerol.Clicker]::Status() }
+      'net' { $data = [Znerol.Sys]::Net() }
+      'drives' { $data = [Znerol.Sys]::Drives() }
+      'processes' { $data = [Znerol.Sys]::Processes() }
+      'kill' { [Znerol.Sys]::Kill([int]$req.pid) }
+      'setPriority' { [Znerol.Sys]::SetPriority([int]$req.pid, [string]$req.arg) }
+      'monitorOff' { [Znerol.Sys]::MonitorOff() }
+      'gpu' { $data = [Znerol.Sys]::Gpu() }
+      'minimizeAll' { (New-Object -ComObject Shell.Application).MinimizeAll() }
+      'undoMinimizeAll' { (New-Object -ComObject Shell.Application).UndoMinimizeALL() }
       default { throw ('unknown command ' + $req.cmd) }
     }
     $out = '{"id":' + $id + ',"ok":true,"data":' + $data + '}'
