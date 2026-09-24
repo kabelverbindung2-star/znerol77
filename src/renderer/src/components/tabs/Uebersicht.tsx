@@ -1,18 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
 import NavIcon from '../ui/NavIcon'
+import { useContextMenu, type MenuItem } from '../ui/ContextMenu'
 import { WIDGETS, type Size, type WidgetProps } from '../dashboard/widgets'
 import type { WidgetConfig } from '../../lib/types'
 
 export { BoostExplainer, DEFAULT_BLOCKLIST } from '../../lib/boost'
 
-type Props = Omit<WidgetProps, 'size'>
+type Props = Omit<WidgetProps, 'size'> & {
+  /** which tile list: the main window or the second screen */
+  board?: 'widgets' | 'widgets2'
+  /** extra buttons at the right end of the bar (second screen: close) */
+  barExtra?: JSX.Element
+}
 
 const LONG_PRESS_MS = 550
 const SIZE_LABEL: Record<Size, string> = { s: 'Klein', m: 'Mittel', l: 'Breit' }
 
 export default function Uebersicht(props: Props): JSX.Element {
-  const { settings, update } = props
-  const [widgets, setWidgets] = useState<WidgetConfig[]>(settings.dashboard.widgets)
+  const { settings, update, board = 'widgets', barExtra } = props
+  const other = board === 'widgets' ? 'widgets2' : 'widgets'
+  const saved = settings.dashboard[board] ?? []
+  const [widgets, setWidgets] = useState<WidgetConfig[]>(saved)
   const [editing, setEditing] = useState(false)
   const [picker, setPicker] = useState(false)
   const [dragId, setDragId] = useState<string | null>(null)
@@ -21,12 +29,61 @@ export default function Uebersicht(props: Props): JSX.Element {
 
   // follow changes made elsewhere (e.g. "Kacheln zurücksetzen" in the settings)
   useEffect(() => {
-    if (!dragId) setWidgets(settings.dashboard.widgets)
-  }, [settings.dashboard.widgets, dragId])
+    if (!dragId) setWidgets(saved)
+  }, [saved, dragId])
 
   const save = (next: WidgetConfig[]): void => {
     setWidgets(next)
-    update({ dashboard: { widgets: next } })
+    update({ dashboard: { [board]: next } })
+  }
+
+  // ---------- second screen ----------
+  const [displays, setDisplays] = useState(1)
+  useEffect(() => {
+    const load = (): void => {
+      window.znerol.screens.list().then((l) => setDisplays(l.length)).catch(() => undefined)
+    }
+    load()
+    return window.znerol.screens.onChanged(load)
+  }, [])
+  const dual = settings.screens.dual
+  const [note, setNote] = useState<string | null>(null)
+  const toggleDual = (): void => {
+    if (!dual && displays < 2) {
+      setNote('Nur ein Bildschirm erkannt. Schließ einen zweiten an, dann geht es.')
+      return
+    }
+    setNote(null)
+    update({ screens: { dual: !dual } })
+  }
+  const moveToOther = (w: WidgetConfig): void => {
+    const next = widgets.filter((x) => x.id !== w.id)
+    setWidgets(next)
+    update({
+      dashboard: { [board]: next, [other]: [...(settings.dashboard[other] ?? []), w] },
+      ...(board === 'widgets' && !dual ? { screens: { dual: true } } : {})
+    })
+  }
+
+  // ---------- right click on a tile ----------
+  const ctx = useContextMenu()
+  const tileMenu = (e: React.MouseEvent, w: WidgetConfig, size: Size): void => {
+    const def = WIDGETS[w.type]
+    const items: MenuItem[] = [
+      board === 'widgets'
+        ? {
+            label: displays < 2 ? 'Auf Bildschirm 2 (nur 1 Bildschirm erkannt)' : 'Auf Bildschirm 2 verschieben',
+            disabled: displays < 2,
+            onClick: () => moveToOther(w)
+          }
+        : { label: 'Auf Hauptbildschirm verschieben', onClick: () => moveToOther(w) },
+      { label: '', separator: true },
+      ...def.sizes.map((s) => ({ label: SIZE_LABEL[s], active: s === size, onClick: () => setSize(w.id, s) })),
+      { label: '', separator: true },
+      { label: 'Kacheln bearbeiten', onClick: () => setEditing(true) },
+      { label: `${def.name} entfernen`, danger: true, onClick: () => remove(w.id) }
+    ]
+    ctx.open(e, items)
   }
 
   // ---------- long press to edit ----------
@@ -82,7 +139,7 @@ export default function Uebersicht(props: Props): JSX.Element {
   }
   const onDragEnd = (): void => {
     setDragId(null)
-    update({ dashboard: { widgets } })
+    update({ dashboard: { [board]: widgets } })
   }
 
   const setSize = (id: string, size: Size): void => save(widgets.map((w) => (w.id === id ? { ...w, size } : w)))
@@ -108,10 +165,25 @@ export default function Uebersicht(props: Props): JSX.Element {
             </button>
           </>
         ) : (
-          <button type="button" className="btn btn-sm ghost" onClick={() => setEditing(true)} title="Oder lange auf eine Kachel drücken">
-            Bearbeiten
-          </button>
+          <>
+            {note && <span className="quick-sub">{note}</span>}
+            {board === 'widgets' && (
+              <button
+                type="button"
+                className={`btn btn-sm ghost ${dual ? 'on' : ''}`}
+                aria-pressed={dual}
+                onClick={toggleDual}
+                title="Zweites Fenster mit eigenen Kacheln auf dem anderen Bildschirm. Rechtsklick auf eine Kachel verschiebt sie."
+              >
+                <NavIcon name="screens" size={15} /> 2 Bildschirme{dual ? ': an' : ''}
+              </button>
+            )}
+            <button type="button" className="btn btn-sm ghost" onClick={() => setEditing(true)} title="Oder lange auf eine Kachel drücken · Rechtsklick für mehr">
+              Bearbeiten
+            </button>
+          </>
         )}
+        {barExtra}
       </div>
 
       <div className="dash-grid">
@@ -132,6 +204,7 @@ export default function Uebersicht(props: Props): JSX.Element {
               onDragEnter={() => onDragEnter(w.id)}
               onDragOver={(e) => editing && e.preventDefault()}
               onDragEnd={onDragEnd}
+              onContextMenu={(e) => tileMenu(e, w, size)}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={cancelPress}
@@ -174,6 +247,8 @@ export default function Uebersicht(props: Props): JSX.Element {
           </div>
         )}
       </div>
+
+      {ctx.menu}
 
       {picker && (
         <div className="modal-backdrop" onClick={() => setPicker(false)}>

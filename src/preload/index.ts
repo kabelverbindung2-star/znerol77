@@ -107,6 +107,23 @@ const api = {
   },
   nav: {
     onGoto: (cb: (tab: string) => void) => subscribe('nav:goto', cb)
+  },
+  win: {
+    minimize: () => ipcRenderer.invoke('win:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('win:toggleMaximize'),
+    close: () => ipcRenderer.invoke('win:close')
+  },
+  screens: {
+    list: (): Promise<{ id: number; label: string; primary: boolean; width: number; height: number }[]> =>
+      ipcRenderer.invoke('screens:list'),
+    onChanged: (cb: () => void) => subscribe('screens:changed', cb)
+  },
+  rest: {
+    start: (): Promise<{ powerMode: boolean; minimized: number }> => ipcRenderer.invoke('rest:start'),
+    stop: () => ipcRenderer.invoke('rest:stop')
+  },
+  display: {
+    off: () => ipcRenderer.invoke('display:off')
   }
 }
 

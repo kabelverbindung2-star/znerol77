@@ -14,12 +14,13 @@ export const DEFAULT_WIDGETS: WidgetConfig[] = [
 ]
 
 export const DEFAULT_SETTINGS: Settings = {
-  appearance: { style: 'glass', mode: 'dark', background: 'photos' },
+  appearance: { style: 'glass', mode: 'dark', background: 'photos', nav: 'top' },
   wallpaper: { auto: true, intervalMin: 10, order: 'random', glass: true, blur: 16, dim: 16, currentId: null },
   overlay: { enabled: false },
   audio: { switchHotkey: 'F6' },
   weather: null,
-  dashboard: { widgets: DEFAULT_WIDGETS },
+  dashboard: { widgets: DEFAULT_WIDGETS, widgets2: [] },
+  screens: { dual: false, displayId: null },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }
@@ -30,7 +31,8 @@ export interface SettingsPatch {
   overlay?: Partial<Settings['overlay']>
   audio?: Partial<Settings['audio']>
   weather?: Settings['weather']
-  dashboard?: Settings['dashboard']
+  dashboard?: Partial<Settings['dashboard']>
+  screens?: Partial<Settings['screens']>
   performance?: Partial<Settings['performance']>
   accent?: string
 }
@@ -54,7 +56,8 @@ export function useSettings(): { settings: Settings; update: (patch: SettingsPat
       overlay: { ...s.overlay, ...(patch.overlay ?? {}) },
       audio: { ...s.audio, ...(patch.audio ?? {}) },
       weather: patch.weather !== undefined ? patch.weather : s.weather,
-      dashboard: patch.dashboard ?? s.dashboard,
+      dashboard: { ...s.dashboard, ...(patch.dashboard ?? {}) },
+      screens: { ...s.screens, ...(patch.screens ?? {}) },
       performance: { ...s.performance, ...(patch.performance ?? {}) },
       accent: patch.accent ?? s.accent
     }))

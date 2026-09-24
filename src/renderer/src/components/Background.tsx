@@ -1,11 +1,26 @@
 import { memo, useEffect, useState } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import Scene from './ui/Scene'
 import { paletteFor } from '../lib/palettes'
 import type { Wallpaper } from '../lib/types'
 
+// A drawn scene is hundreds of SVG shapes; as live DOM it is re-rasterised whenever something
+// above it repaints. Turned into one image once, it costs the same as a photo.
+const sceneCache = new Map<string, string>()
+
+export function sceneImage(id: string): string {
+  let url = sceneCache.get(id)
+  if (!url) {
+    const svg = renderToStaticMarkup(<Scene p={paletteFor(id)} idSuffix={id.replace(/[^a-zA-Z]/g, '')} />)
+    const withNs = svg.includes('xmlns=') ? svg : svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')
+    url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(withNs)
+    sceneCache.set(id, url)
+  }
+  return url
+}
+
 function Layer({ wp }: { wp: Wallpaper }): JSX.Element {
-  if (wp.source === 'builtin') return <Scene p={paletteFor(wp.id)} idSuffix={wp.id.replace(/[^a-zA-Z]/g, '')} />
-  return <img src={wp.url} alt="" draggable={false} />
+  return <img src={wp.source === 'builtin' ? sceneImage(wp.id) : wp.url} alt="" draggable={false} decoding="async" />
 }
 
 /** Full-window wallpaper that cross-fades when the current image changes. */

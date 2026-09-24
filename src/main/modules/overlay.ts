@@ -29,7 +29,8 @@ export function ensureOverlay(preload: string, load: (w: BrowserWindow) => void)
   })
   w.setAlwaysOnTop(true, 'screen-saver')
   w.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  w.setIgnoreMouseEvents(true, { forward: true })
+  // no { forward: true }: forwarding installs a system-wide mouse hook that made the cursor lag
+  w.setIgnoreMouseEvents(true)
   win = w
   ready = new Promise((resolve) => w.webContents.once('did-finish-load', () => resolve(w)))
   w.on('closed', () => {
@@ -76,7 +77,7 @@ export function setMenuOpen(open: boolean): void {
     w.setIgnoreMouseEvents(false)
     w.focus()
   } else {
-    w.setIgnoreMouseEvents(true, { forward: true })
+    w.setIgnoreMouseEvents(true)
     w.setFocusable(false)
     w.blur()
   }

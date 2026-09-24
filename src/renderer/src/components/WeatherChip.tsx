@@ -14,7 +14,7 @@ const P = {
   fog: 'M3 10h18M3 14h18M5 18h14M7 6h10'
 }
 
-function describe(code: number, isDay: boolean): { text: string; icon: string } {
+export function describe(code: number, isDay: boolean): { text: string; icon: string } {
   if (code === 0) return { text: 'Klar', icon: isDay ? P.sun : P.moon }
   if (code <= 2) return { text: 'Teils bewölkt', icon: isDay ? P.sun : P.moon }
   if (code === 3) return { text: 'Bewölkt', icon: P.cloud }

@@ -1,5 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from 'react'
 import Background from './components/Background'
+import RestScreen from './components/RestScreen'
+import WindowControls from './components/WindowControls'
+import { useContextMenu } from './components/ui/ContextMenu'
 import WallpaperPanel from './components/WallpaperPanel'
 import WallpaperInfo from './components/WallpaperInfo'
 import NavIcon from './components/ui/NavIcon'
@@ -32,6 +35,13 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'] | 'einstellungen'
 
+// how this window was opened (see loadPage in the main process)
+const params = new URLSearchParams(window.location.search)
+const REST = params.get('rest')
+const SECOND = params.get('screen') === '2'
+const CUSTOM_FRAME = params.get('frame') === 'custom'
+const START_TAB = (params.get('tab') as TabId | null) ?? 'uebersicht'
+
 const LIME = '#c6f432'
 
 /** Dark or light text on top of the accent colour, whichever is readable. */
@@ -46,7 +56,12 @@ function inkFor(hex: string): string {
 }
 
 export default function App(): JSX.Element {
-  const [tab, setTab] = useState<TabId>('uebersicht')
+  if (REST !== null) return <RestScreen index={Number(REST)} />
+  return <MainApp />
+}
+
+function MainApp(): JSX.Element {
+  const [tab, setTab] = useState<TabId>(SECOND ? 'uebersicht' : START_TAB)
   const [panelOpen, setPanelOpen] = useState(false)
   const [isWindows, setIsWindows] = useState(true)
   const [hotkeys, setHotkeys] = useState({ menu: 'Alt+Q', hide: 'Alt+H' })
@@ -54,12 +69,20 @@ export default function App(): JSX.Element {
   const { sample, history } = usePerf()
   const { settings, update } = useSettings()
   const ringing = useTimerAlarm()
+  const [restNote, setRestNote] = useState<string | null>(null)
+  const startRest = (): void => {
+    setRestNote(null)
+    window.znerol.rest.start().catch((e: Error) => setRestNote(`Ruhemodus ging nicht: ${e.message}`))
+  }
 
   const { style: look, mode, background } = settings.appearance
   const glass = look === 'glass'
   const showPicture = glass && (background === 'photos' || background === 'fixed')
   const transparent = glass && background === 'transparent'
-  const walls = useWallpapers(settings, update, showPicture && background === 'photos')
+  // only the main window rotates the picture; the second screen follows it
+  const walls = useWallpapers(settings, update, !SECOND && showPicture && background === 'photos')
+  const nav = settings.appearance.nav ?? 'top'
+  const ctx = useContextMenu()
 
   useEffect(() => {
     window.znerol.system
@@ -94,7 +117,9 @@ export default function App(): JSX.Element {
   const style = {
     '--accent': accent,
     '--accent-ink': inkFor(accent),
-    '--blur': `${settings.wallpaper.blur}px`
+    '--blur': `${settings.wallpaper.blur}px`,
+    // see-through window: "abdunkeln" decides how solid the cards are
+    '--see-alpha': String(0.25 + (settings.wallpaper.dim / 60) * 0.6)
   } as CSSProperties
 
   const cls = [
@@ -103,21 +128,60 @@ export default function App(): JSX.Element {
     panelOpen ? 'with-panel' : '',
     glass && !settings.wallpaper.glass ? 'no-glass' : '',
     transparent ? 'bg-transparent' : '',
-    glass && background === 'plain' ? 'bg-plain' : ''
+    glass && background === 'plain' ? 'bg-plain' : '',
+    SECOND ? 'second-screen' : `nav-${nav}`,
+    CUSTOM_FRAME ? 'custom-frame' : ''
   ]
     .filter(Boolean)
     .join(' ')
 
   const needsWindows = !isWindows && ['autostart', 'autoclicker', 'audio'].includes(tab)
 
+  const navMenu = (e: React.MouseEvent): void =>
+    ctx.open(e, [
+      { label: 'Leiste oben', active: nav === 'top', onClick: () => update({ appearance: { nav: 'top' } }) },
+      { label: 'Leiste links', active: nav === 'left', onClick: () => update({ appearance: { nav: 'left' } }) },
+      { label: 'Leiste rechts', active: nav === 'right', onClick: () => update({ appearance: { nav: 'right' } }) },
+      { label: '', separator: true },
+      { label: 'Ruhemodus starten', onClick: startRest },
+      { label: 'Bildschirm ausschalten', onClick: () => window.znerol.display.off() }
+    ])
+
+  if (SECOND) {
+    return (
+      <div className={cls} style={style}>
+        {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
+        <div className="drag-strip" />
+        <main className="content content-uebersicht">
+          <Uebersicht
+            sample={sample}
+            history={history}
+            settings={settings}
+            update={update}
+            goto={() => undefined}
+            hotkeys={hotkeys}
+            board="widgets2"
+            barExtra={
+              <button type="button" className="btn btn-sm ghost" onClick={() => window.znerol.win.close()} title="Zweiten Bildschirm ausschalten">
+                <NavIcon name="close" size={14} /> Schließen
+              </button>
+            }
+          />
+        </main>
+        {ctx.menu}
+      </div>
+    )
+  }
+
   return (
     <div className={cls} style={style}>
       {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
 
       <div className="drag-strip" />
+      {CUSTOM_FRAME && <WindowControls />}
 
-      <aside className="sidebar glass">
-        <div className="brand">
+      <aside className="sidebar glass" onContextMenu={navMenu}>
+        <div className="brand" title="Rechtsklick: Leiste verschieben">
           <span className="brand-mark" />
           <span>Znerol</span>
         </div>
@@ -128,6 +192,7 @@ export default function App(): JSX.Element {
               type="button"
               className={tab === t.id ? 'active' : ''}
               aria-current={tab === t.id ? 'page' : undefined}
+              title={t.label}
               onClick={() => setTab(t.id)}
             >
               <NavIcon name={t.id} />
@@ -142,8 +207,21 @@ export default function App(): JSX.Element {
             </button>
           )}
           {appUpdate.status === 'downloading' && <span className="update-note">Update {appUpdate.version} lädt …</span>}
+          <button type="button" className="rest-btn" title="Ruhemodus: PC wird leise, Bildschirm bleibt an" onClick={startRest}>
+            <NavIcon name="ruhe" />
+            <span>Ruhemodus</span>
+          </button>
+          <button
+            type="button"
+            className="rest-btn"
+            title="Bildschirm aus (PC läuft weiter, Maus bewegen weckt ihn)"
+            onClick={() => window.znerol.display.off()}
+          >
+            <NavIcon name="displayoff" />
+            <span>Bildschirm aus</span>
+          </button>
           {showPicture && (
-            <button type="button" className={panelOpen ? 'active' : ''} aria-pressed={panelOpen} onClick={() => setPanelOpen((v) => !v)}>
+            <button type="button" className={panelOpen ? 'active' : ''} aria-pressed={panelOpen} title="Hintergrund" onClick={() => setPanelOpen((v) => !v)}>
               <NavIcon name="bild" />
               <span>Hintergrund</span>
             </button>
@@ -152,6 +230,7 @@ export default function App(): JSX.Element {
             type="button"
             className={tab === 'einstellungen' ? 'active' : ''}
             aria-current={tab === 'einstellungen' ? 'page' : undefined}
+            title="Einstellungen"
             onClick={() => setTab('einstellungen')}
           >
             <NavIcon name="einstellungen" />
@@ -161,6 +240,7 @@ export default function App(): JSX.Element {
       </aside>
 
       <main className={`content content-${tab}`}>
+        {restNote && <div className="win-only-banner">{restNote}</div>}
         {needsWindows && <div className="win-only-banner">Diese Funktion braucht Windows. Hier läuft nur die Anzeige.</div>}
         {ringing && <div className="timer-ring">Timer abgelaufen</div>}
         {tab === 'uebersicht' && (
@@ -178,7 +258,13 @@ export default function App(): JSX.Element {
         )}
         {tab === 'werkzeuge' && <Werkzeuge />}
         {tab === 'einstellungen' && (
-          <Einstellungen settings={settings} update={update} hotkeys={hotkeys} openWallpapers={() => setPanelOpen(true)} />
+          <Einstellungen
+            settings={settings}
+            update={update}
+            hotkeys={hotkeys}
+            openWallpapers={() => setPanelOpen(true)}
+            startRest={startRest}
+          />
         )}
       </main>
 
@@ -197,6 +283,7 @@ export default function App(): JSX.Element {
       )}
 
       {showPicture && <WallpaperInfo wallpaper={walls.current} />}
+      {ctx.menu}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, globalShortcut, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, globalShortcut, dialog, screen } from 'electron'
 import { join } from 'path'
 import { is } from './modules/env'
 import { startPerfLoop, stopPerfLoop, restartPerfLoop, startSystemQueries, stopSystemQueries } from './modules/perf'
@@ -49,6 +49,7 @@ import {
   isMenuOpen,
   showToast
 } from './modules/overlay'
+import { startRest, stopRest, isResting, displayOff } from './modules/rest'
 import { startAutoUpdates, getUpdateState, installUpdateNow, checkForUpdatesNow } from './modules/updater'
 
 const PRELOAD = join(__dirname, '../preload/index.mjs')
@@ -62,11 +63,12 @@ let boostActive = false
 
 registerWallpaperScheme()
 
-function loadPage(win: BrowserWindow, page: 'index' | 'overlay'): void {
+function loadPage(win: BrowserWindow, page: 'index' | 'overlay', query: Record<string, string> = {}): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${page}.html`)
+    const qs = new URLSearchParams(query).toString()
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${page}.html${qs ? `?${qs}` : ''}`)
   } else {
-    win.loadFile(join(__dirname, `../renderer/${page}.html`))
+    win.loadFile(join(__dirname, `../renderer/${page}.html`), { query })
   }
 }
 
@@ -78,42 +80,131 @@ function broadcast(channel: string, payload?: unknown): void {
   for (const w of allWindows()) if (!w.isDestroyed()) w.webContents.send(channel, payload)
 }
 
-function createMainWindow(): void {
-  mainWindow = new BrowserWindow({
+/** "Durchsichtig": a real transparent window, the desktop shows through between the cards. */
+function wantsTransparent(s: Settings): boolean {
+  return isWindows && s.appearance.style === 'glass' && s.appearance.background === 'transparent'
+}
+
+function solidColor(s: Settings): string {
+  return s.appearance.style === 'basic' && s.appearance.mode === 'light' ? '#F4F4F2' : '#0A0B09'
+}
+
+// transparent windows draw their own min/max/close buttons, so they remember the size themselves
+const restoreBounds = new WeakMap<BrowserWindow, Electron.Rectangle>()
+
+function createMainWindow(settings: Settings, opts: { bounds?: Electron.Rectangle; tab?: string } = {}): BrowserWindow {
+  const transparent = wantsTransparent(settings)
+  const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    minWidth: 980,
-    minHeight: 640,
+    ...(opts.bounds ?? {}),
+    minWidth: 560,
+    minHeight: 420,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0A0B09',
-    titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#00000000', symbolColor: '#F2F4EE', height: 44 },
+    ...(transparent
+      ? { transparent: true, frame: false, backgroundColor: '#00000000', hasShadow: false }
+      : {
+          backgroundColor: solidColor(settings),
+          titleBarStyle: 'hidden' as const,
+          titleBarOverlay: { color: '#00000000', symbolColor: symbolColor(settings), height: 44 }
+        }),
     webPreferences: { preload: PRELOAD, sandbox: false }
   })
 
-  mainWindow.on('ready-to-show', () => mainWindow?.show())
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
     return { action: 'deny' }
   })
-  mainWindow.on('closed', () => {
+  win.on('closed', () => {
+    // only when the user closes it; a window replaced by recreateMainWindow is not the main one any more
+    if (mainWindow !== win) return
     mainWindow = null
-    getOverlayWindow()?.close()
+    app.quit()
   })
-  loadPage(mainWindow, 'index')
+  loadPage(win, 'index', { ...(transparent ? { frame: 'custom' } : {}), ...(opts.tab ? { tab: opts.tab } : {}) })
+  return win
 }
 
-/** "Transparent" background = Windows 11 acrylic material behind the page. */
+function openMainWindow(settings: Settings): void {
+  mainWindow = createMainWindow(settings)
+  const w = mainWindow
+  w.once('ready-to-show', () => w.show())
+}
+
+/** Transparency can only be chosen when a window is created, so switching it swaps the window. */
+function recreateMainWindow(settings: Settings, tab?: string): void {
+  const old = mainWindow
+  const bounds = old && !old.isDestroyed() ? (old.isMaximized() ? old.getNormalBounds() : old.getBounds()) : undefined
+  const next = createMainWindow(settings, { bounds, tab })
+  mainWindow = next
+  next.once('ready-to-show', () => {
+    next.show()
+    if (old && !old.isDestroyed()) old.destroy()
+  })
+  syncSecondScreen(settings, true)
+}
+
+function symbolColor(s: Settings): string {
+  return s.appearance.style === 'basic' && s.appearance.mode === 'light' ? '#1F2328' : '#F2F4EE'
+}
+
 function applyAppearance(settings: Settings): void {
-  if (!mainWindow || process.platform !== 'win32') return
-  const transparent = settings.appearance.background === 'transparent' && settings.appearance.style === 'glass'
+  if (!mainWindow || mainWindow.isDestroyed() || wantsTransparent(settings)) return
   try {
-    mainWindow.setBackgroundMaterial(transparent ? 'acrylic' : 'none')
-    mainWindow.setBackgroundColor(transparent ? '#00000000' : '#0A0B09')
+    mainWindow.setBackgroundColor(solidColor(settings))
+    mainWindow.setTitleBarOverlay({ color: '#00000000', symbolColor: symbolColor(settings), height: 44 })
   } catch {
-    // Windows 10 / older Electron: stays opaque, the page shows its own background
+    // not available on this platform
   }
+}
+
+// ---------- second screen ----------
+let secondWindow: BrowserWindow | null = null
+let secondTransparent = false
+
+function syncSecondScreen(settings: Settings, recreate = false): void {
+  const displays = screen.getAllDisplays()
+  const main = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null
+  if (!settings.screens.dual || displays.length < 2 || !main || isResting()) {
+    if (secondWindow && !secondWindow.isDestroyed()) secondWindow.destroy()
+    secondWindow = null
+    return
+  }
+  const mainDisplay = screen.getDisplayMatching(main.getBounds())
+  const target =
+    displays.find((d) => d.id === settings.screens.displayId && d.id !== mainDisplay.id) ?? displays.find((d) => d.id !== mainDisplay.id)!
+  const transparent = wantsTransparent(settings)
+  if (secondWindow && !secondWindow.isDestroyed() && (recreate || transparent !== secondTransparent)) {
+    secondWindow.destroy()
+    secondWindow = null
+  }
+  if (secondWindow && !secondWindow.isDestroyed()) {
+    secondWindow.setBounds(target.workArea)
+    return
+  }
+  secondTransparent = transparent
+  const w = new BrowserWindow({
+    ...target.workArea,
+    frame: false,
+    show: false,
+    autoHideMenuBar: true,
+    ...(transparent ? { transparent: true, backgroundColor: '#00000000', hasShadow: false } : { backgroundColor: solidColor(settings) }),
+    webPreferences: { preload: PRELOAD, sandbox: false }
+  })
+  w.once('ready-to-show', () => {
+    w.setBounds(target.workArea)
+    w.showInactive()
+  })
+  w.on('closed', () => {
+    if (secondWindow === w) secondWindow = null
+  })
+  loadPage(w, 'index', { screen: '2', ...(transparent ? { frame: 'custom' } : {}) })
+  secondWindow = w
+}
+
+function appWindows(): BrowserWindow[] {
+  return [mainWindow, secondWindow].filter((w): w is BrowserWindow => !!w && !w.isDestroyed())
 }
 
 function overlay(): Promise<BrowserWindow> {
@@ -128,7 +219,6 @@ async function setOverlayEnabled(enabled: boolean): Promise<void> {
 }
 
 function showMainWindow(tab?: string): void {
-  if (!mainWindow) createMainWindow()
   if (!mainWindow) return
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
@@ -292,12 +382,64 @@ function wireIpc(): void {
   ipcMain.handle('settings:update', async (_e, patch) => {
     const before = await getSettings()
     const oldInterval = before.performance.intervalSec
+    const wasTransparent = wantsTransparent(before)
     const next = await updateSettings(patch)
     if (patch.appearance) applyAppearance(next)
     if (next.performance.intervalSec !== oldInterval) restartPerfLoop(allWindows, next.performance.intervalSec * 1000)
     broadcast('settings:changed')
+    // after answering, otherwise the page that asked is gone before it gets the reply
+    if (wantsTransparent(next) !== wasTransparent) setTimeout(() => recreateMainWindow(next, 'einstellungen'), 60)
+    else if (patch.screens || patch.appearance) syncSecondScreen(next)
     return next
   })
+
+  // own window buttons for the transparent (frameless) window
+  ipcMain.handle('win:minimize', (e) => BrowserWindow.fromWebContents(e.sender)?.minimize())
+  ipcMain.handle('win:close', (e) => {
+    const w = BrowserWindow.fromWebContents(e.sender)
+    if (w === secondWindow) updateSettings({ screens: { dual: false } }).then(() => broadcast('settings:changed'))
+    w?.close()
+  })
+  ipcMain.handle('win:toggleMaximize', (e) => {
+    const w = BrowserWindow.fromWebContents(e.sender)
+    if (!w) return
+    const area = screen.getDisplayMatching(w.getBounds()).workArea
+    const saved = restoreBounds.get(w)
+    const b = w.getBounds()
+    const filling = b.x === area.x && b.y === area.y && b.width === area.width && b.height === area.height
+    if (filling && saved) {
+      w.setBounds(saved)
+      restoreBounds.delete(w)
+    } else {
+      restoreBounds.set(w, b)
+      w.setBounds(area)
+    }
+  })
+
+  ipcMain.handle('screens:list', () => {
+    const primary = screen.getPrimaryDisplay().id
+    return screen.getAllDisplays().map((d, i) => ({
+      id: d.id,
+      label: d.label || `Bildschirm ${i + 1}`,
+      primary: d.id === primary,
+      width: Math.round(d.size.width * d.scaleFactor),
+      height: Math.round(d.size.height * d.scaleFactor)
+    }))
+  })
+
+  ipcMain.handle('rest:start', () =>
+    startRest({
+      preload: PRELOAD,
+      load: (w, query) => loadPage(w, 'index', query),
+      appWindows,
+      onStart: () => stopPerfLoop(),
+      onStop: () => {
+        getSettings().then((s) => startPerfLoop(allWindows, s.performance.intervalSec * 1000))
+      }
+    })
+  )
+  ipcMain.handle('rest:stop', () => stopRest())
+  ipcMain.handle('display:off', () => displayOff())
 
   ipcMain.handle('wallpapers:list', () => listWallpapers())
   ipcMain.handle('wallpapers:sync', () => syncCommonsWallpapers(true))
@@ -320,9 +462,15 @@ app.whenReady().then(async () => {
   setWallpaperListener(allWindows)
   wireIpc()
   startSystemQueries()
-  createMainWindow()
   const settings = await getSettings()
-  applyAppearance(settings)
+  openMainWindow(settings)
+  mainWindow?.once('ready-to-show', () => syncSecondScreen(settings))
+  const resync = (): void => {
+    getSettings().then((s) => syncSecondScreen(s))
+    broadcast('screens:changed')
+  }
+  screen.on('display-added', resync)
+  screen.on('display-removed', resync)
   if (settings.overlay.enabled) setOverlayEnabled(true).catch(() => undefined)
   registerOverlayHotkeys()
   registerAudioHotkey(settings.audio.switchHotkey)
@@ -331,7 +479,7 @@ app.whenReady().then(async () => {
   startAutoUpdates((s) => broadcast('update:changed', s))
 
   app.on('activate', () => {
-    if (!mainWindow) createMainWindow()
+    if (!mainWindow) getSettings().then(openMainWindow)
   })
 })
 
@@ -349,3 +497,4 @@ app.on('will-quit', () => {
   clickerEngine.dispose()
   winHelper.dispose()
 })
+

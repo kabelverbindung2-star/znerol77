@@ -104,6 +104,13 @@ try {
   const gpu = await ask(h, 'gpu')
   console.log('gpu (no GPU counters on the runner is fine)', JSON.stringify(gpu).slice(0, 200))
 
+  // rest mode helpers: minimise/restore (the runner has no app windows) and the power mode
+  const mini = await ask(h, 'minimizeOthers', { pid: process.pid })
+  const back = await ask(h, 'restoreMinimized')
+  const mode = await ask(h, 'powerMode')
+  console.log('minimizeOthers', JSON.stringify(mini), 'restoreMinimized', JSON.stringify(back), 'powerMode', JSON.stringify(mode))
+  if (!mini.ok || !back.ok || !mode.ok) throw new Error('rest mode commands failed')
+
   // 2) the 500 clicks/s clicker thread: start, count, stop
   const start = await ask(h, 'clickStart', { button: 'left', double: false, move: false, x: 0, y: 0, interval: 2, jitter: 0, limit: 0 })
   if (!start.ok) throw new Error('clickStart failed: ' + JSON.stringify(start))

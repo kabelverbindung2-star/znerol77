@@ -8,6 +8,7 @@ interface Props {
   update: (patch: SettingsPatch) => Promise<void>
   openWallpapers: () => void
   hotkeys: { menu: string; hide: string }
+  startRest: () => void
 }
 
 const ACCENTS = ['#C6F432', '#5CE1E6', '#FFB020', '#FF5FA2', '#2563EB', '#16A34A', '#9333EA', '#EA580C']
@@ -63,7 +64,7 @@ function Choice<T extends string>({
   )
 }
 
-export default function Einstellungen({ settings, update, openWallpapers, hotkeys }: Props): JSX.Element {
+export default function Einstellungen({ settings, update, openWallpapers, hotkeys, startRest }: Props): JSX.Element {
   const a = settings.appearance
   const wp = settings.wallpaper
   const [loginItem, setLoginItem] = useState(false)
@@ -73,6 +74,15 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
   const [audioKeyMsg, setAudioKeyMsg] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [places, setPlaces] = useState<Place[]>([])
+  const [displays, setDisplays] = useState<{ id: number; label: string; primary: boolean; width: number; height: number }[]>([])
+
+  useEffect(() => {
+    const load = (): void => {
+      window.znerol.screens.list().then(setDisplays).catch(() => undefined)
+    }
+    load()
+    return window.znerol.screens.onChanged(load)
+  }, [])
 
   useEffect(() => {
     window.znerol.system.getLoginItem().then(setLoginItem).catch(() => undefined)
@@ -133,6 +143,17 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
               />
             </Row>
           )}
+          <Row label="Leiste" sub="Auch per Rechtsklick auf die Leiste">
+            <Choice
+              value={a.nav ?? 'top'}
+              options={[
+                { value: 'top', label: 'Oben' },
+                { value: 'left', label: 'Links' },
+                { value: 'right', label: 'Rechts' }
+              ]}
+              onChange={(v) => update({ appearance: { nav: v } })}
+            />
+          </Row>
           <Row label="Akzentfarbe">
             <div className="swatches">
               {ACCENTS.map((c) => (
@@ -166,7 +187,7 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
               {a.background === 'fixed' && 'Ein Bild, das bleibt. Kein automatischer Wechsel.'}
               {a.background === 'plain' && 'Gar kein Bild – einfarbiger Hintergrund, der Bild-Knopf verschwindet.'}
               {a.background === 'transparent' &&
-                'Der Desktop scheint verschwommen durch (Windows 11). Unter Windows 10 bleibt der Hintergrund dunkel.'}
+                'Das Fenster wird durchsichtig: zwischen und hinter den Karten siehst du deinen Desktop. Beim Umschalten öffnet sich das Fenster kurz neu.'}
             </div>
             {(a.background === 'photos' || a.background === 'fixed') && (
               <>
@@ -198,11 +219,64 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
                 </Row>
               </>
             )}
+            {a.background === 'transparent' && (
+              <Row label="Karten" sub="Links = mehr Desktop sichtbar, rechts = besser lesbar">
+                <input
+                  type="range"
+                  min={0}
+                  max={60}
+                  value={wp.dim}
+                  aria-label="Deckkraft der Karten"
+                  onChange={(e) => update({ wallpaper: { dim: Number(e.target.value) } })}
+                />
+              </Row>
+            )}
             <Row label="Glas-Effekt" sub="Aus = schneller, weniger Arbeit für die Grafikkarte">
               <Switch on={wp.glass} onToggle={(v) => update({ wallpaper: { glass: v } })} />
             </Row>
           </Section>
         )}
+
+        <Section title="Bildschirme & Ruhe">
+          <Row
+            label="2 Bildschirme"
+            sub={
+              displays.length < 2
+                ? 'Nur ein Bildschirm erkannt'
+                : 'Zweites Fenster mit eigenen Kacheln. Rechtsklick auf eine Kachel verschiebt sie.'
+            }
+          >
+            <Switch on={settings.screens.dual} disabled={displays.length < 2 && !settings.screens.dual} onToggle={(v) => update({ screens: { dual: v } })} />
+          </Row>
+          {settings.screens.dual && displays.length > 2 && (
+            <Row label="Auf welchem Bildschirm">
+              <select
+                value={settings.screens.displayId ?? ''}
+                onChange={(e) => update({ screens: { displayId: e.target.value ? Number(e.target.value) : null } })}
+              >
+                <option value="">Automatisch</option>
+                {displays.map((d, i) => (
+                  <option key={d.id} value={d.id}>
+                    {i + 1}: {d.label} ({d.width}×{d.height}){d.primary ? ' · Haupt' : ''}
+                  </option>
+                ))}
+              </select>
+            </Row>
+          )}
+          <Row
+            label="Ruhemodus"
+            sub="PC wird leise (sparsamster Energiemodus), andere Apps werden minimiert, Bildschirme bleiben an und zeigen nur die Uhr. Klick oder Taste beendet ihn."
+          >
+            <button type="button" className="btn btn-sm" onClick={startRest}>
+              Starten
+            </button>
+          </Row>
+          <Row label="Bildschirm aus" sub="Nur die Bildschirme gehen aus, der PC läuft weiter. Maus bewegen weckt sie.">
+            <button type="button" className="btn btn-sm" onClick={() => window.znerol.display.off()}>
+              Ausschalten
+            </button>
+          </Row>
+        </Section>
 
         <Section title="Tasten">
           <Row label="Audiogerät wechseln" sub={audioKeyMsg ?? 'z. B. F6, F7, Control+Alt+A (Fn geht nicht)'}>

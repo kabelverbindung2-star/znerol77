@@ -13,6 +13,7 @@ export interface Settings {
     style: 'glass' | 'basic'
     mode: 'dark' | 'light' // used by the basic style
     background: 'photos' | 'fixed' | 'plain' | 'transparent'
+    nav: 'left' | 'top' | 'right' // where the navigation bar sits
   }
   wallpaper: {
     auto: boolean
@@ -36,6 +37,11 @@ export interface Settings {
   } | null
   dashboard: {
     widgets: WidgetConfig[]
+    widgets2: WidgetConfig[] // tiles on the second screen
+  }
+  screens: {
+    dual: boolean // second window on another monitor
+    displayId: number | null // which monitor; null = the first one without the main window
   }
   performance: {
     intervalSec: number
@@ -43,7 +49,7 @@ export interface Settings {
   accent: string
 }
 
-const SETTINGS_VERSION = 3
+const SETTINGS_VERSION = 4
 
 export const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: 'w-clock', type: 'clock', size: 'l' },
@@ -57,13 +63,23 @@ export const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: 'w-net', type: 'network', size: 'm' }
 ]
 
+export const DEFAULT_WIDGETS_2: WidgetConfig[] = [
+  { id: 'w2-clock', type: 'clock', size: 'l' },
+  { id: 'w2-media', type: 'media', size: 'm' },
+  { id: 'w2-net', type: 'network', size: 'm' },
+  { id: 'w2-procs', type: 'processes', size: 'm' },
+  { id: 'w2-cpu', type: 'cpu', size: 's' },
+  { id: 'w2-ram', type: 'ram', size: 's' }
+]
+
 const DEFAULTS: Settings = {
-  appearance: { style: 'glass', mode: 'dark', background: 'photos' },
+  appearance: { style: 'glass', mode: 'dark', background: 'photos', nav: 'top' },
   wallpaper: { auto: true, intervalMin: 10, order: 'random', glass: true, blur: 16, dim: 16, currentId: null },
   overlay: { enabled: false },
   audio: { switchHotkey: 'F6' },
   weather: null,
-  dashboard: { widgets: DEFAULT_WIDGETS },
+  dashboard: { widgets: DEFAULT_WIDGETS, widgets2: DEFAULT_WIDGETS_2 },
+  screens: { dual: false, displayId: null },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }
@@ -76,18 +92,22 @@ export async function getSettings(): Promise<Settings> {
   try {
     const raw = JSON.parse(await fs.readFile(file(), 'utf-8'))
     const widgets = Array.isArray(raw.dashboard?.widgets) ? raw.dashboard.widgets : DEFAULT_WIDGETS
+    const widgets2 = Array.isArray(raw.dashboard?.widgets2) ? raw.dashboard.widgets2 : DEFAULT_WIDGETS_2
     cache = {
       appearance: { ...DEFAULTS.appearance, ...(raw.appearance ?? {}) },
       wallpaper: { ...DEFAULTS.wallpaper, ...(raw.wallpaper ?? {}) },
       overlay: { ...DEFAULTS.overlay, ...(raw.overlay ?? {}) },
       audio: { ...DEFAULTS.audio, ...(raw.audio ?? {}) },
       weather: raw.weather && typeof raw.weather.lat === 'number' ? raw.weather : null,
-      dashboard: { widgets },
+      dashboard: { widgets, widgets2 },
+      screens: { ...DEFAULTS.screens, ...(raw.screens ?? {}) },
       performance: { ...DEFAULTS.performance, ...(raw.performance ?? {}) },
       accent: typeof raw.accent === 'string' ? raw.accent : DEFAULTS.accent
     }
     // 2.0.1 had the always-on overlay as default, which cost performance for everyone
     if ((raw.version ?? 1) < 2) cache.overlay.enabled = false
+    // the user asked for the old horizontal bar at the top back
+    if ((raw.version ?? 1) < 4) cache.appearance.nav = 'top'
   } catch {
     cache = structuredClone(DEFAULTS)
   }
@@ -100,7 +120,8 @@ export type SettingsPatch = {
   overlay?: Partial<Settings['overlay']>
   audio?: Partial<Settings['audio']>
   weather?: Settings['weather']
-  dashboard?: Settings['dashboard']
+  dashboard?: Partial<Settings['dashboard']>
+  screens?: Partial<Settings['screens']>
   performance?: Partial<Settings['performance']>
   accent?: string
 }
@@ -117,7 +138,8 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
     overlay: { ...current.overlay, ...(patch.overlay ?? {}) },
     audio: { ...current.audio, ...(patch.audio ?? {}) },
     weather: patch.weather !== undefined ? patch.weather : current.weather,
-    dashboard: patch.dashboard ?? current.dashboard,
+    dashboard: { ...current.dashboard, ...(patch.dashboard ?? {}) },
+    screens: { ...current.screens, ...(patch.screens ?? {}) },
     performance: { ...current.performance, ...(patch.performance ?? {}) },
     accent: patch.accent ?? current.accent
   }

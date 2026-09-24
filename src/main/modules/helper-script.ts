@@ -464,6 +464,66 @@ namespace Znerol {
     public static void MonitorOff() {
       PostMessage(new IntPtr(HWND_BROADCAST), WM_SYSCOMMAND, new IntPtr(SC_MONITORPOWER), new IntPtr(2));
     }
+
+    // ---- rest mode: minimise the other apps and bring exactly those back later ----
+    delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr lParam);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern bool ShowWindowAsync(IntPtr hwnd, int cmd);
+    [DllImport("user32.dll")] static extern int GetWindowTextLength(IntPtr hwnd);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hwnd, uint cmd);
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
+    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out int value, int size);
+
+    static List<IntPtr> minimized = new List<IntPtr>();
+
+    public static int MinimizeOthers(int ownPid) {
+      var found = new List<IntPtr>();
+      EnumWindows(delegate (IntPtr h, IntPtr l) {
+        if (!IsWindowVisible(h) || IsIconic(h) || GetWindowTextLength(h) == 0) return true;
+        if (GetWindow(h, 4) != IntPtr.Zero) return true; // owned popups follow their owner
+        int ex = GetWindowLong(h, -20);
+        if ((ex & 0x80) != 0) return true; // tool windows
+        int cloaked;
+        if (DwmGetWindowAttribute(h, 14, out cloaked, 4) == 0 && cloaked != 0) return true; // hidden store apps
+        uint pid;
+        GetWindowThreadProcessId(h, out pid);
+        if ((int)pid == ownPid) return true;
+        try { if (Process.GetProcessById((int)pid).ProcessName == "explorer" && GetWindowTextLength(h) == 0) return true; } catch { }
+        found.Add(h);
+        return true;
+      }, IntPtr.Zero);
+      foreach (var h in found) ShowWindowAsync(h, 6); // SW_MINIMIZE
+      minimized = found;
+      return found.Count;
+    }
+
+    public static int RestoreMinimized() {
+      int n = 0;
+      for (int i = minimized.Count - 1; i >= 0; i--) {
+        if (IsIconic(minimized[i])) { ShowWindowAsync(minimized[i], 4); n++; } // SW_SHOWNOACTIVATE
+      }
+      minimized = new List<IntPtr>();
+      return n;
+    }
+
+    // Windows 11 "power mode" (the slider in Settings > Power): best efficiency is the quietest.
+    [DllImport("powrprof.dll")] static extern uint PowerGetEffectiveOverlayScheme(out Guid scheme);
+    [DllImport("powrprof.dll")] static extern uint PowerSetActiveOverlayScheme(Guid scheme);
+
+    public static string PowerMode() {
+      try {
+        Guid g;
+        if (PowerGetEffectiveOverlayScheme(out g) == 0) return "\"" + g.ToString() + "\"";
+      } catch { }
+      return "null";
+    }
+
+    public static bool SetPowerMode(string guid) {
+      try { return PowerSetActiveOverlayScheme(new Guid(guid)) == 0; } catch { return false; }
+    }
   }
 
   // Autoclicker loop on its own thread: 1 ms timer resolution + SendInput, so up to
@@ -679,8 +739,10 @@ while ($true) {
       'setPriority' { [Znerol.Sys]::SetPriority([int]$req.pid, [string]$req.arg) }
       'monitorOff' { [Znerol.Sys]::MonitorOff() }
       'gpu' { $data = [Znerol.Sys]::Gpu() }
-      'minimizeAll' { (New-Object -ComObject Shell.Application).MinimizeAll() }
-      'undoMinimizeAll' { (New-Object -ComObject Shell.Application).UndoMinimizeALL() }
+      'minimizeOthers' { $data = [string][Znerol.Sys]::MinimizeOthers([int]$req.pid) }
+      'restoreMinimized' { $data = [string][Znerol.Sys]::RestoreMinimized() }
+      'powerMode' { $data = [Znerol.Sys]::PowerMode() }
+      'setPowerMode' { $data = if ([Znerol.Sys]::SetPowerMode([string]$req.arg)) { 'true' } else { 'false' } }
       default { throw ('unknown command ' + $req.cmd) }
     }
     $out = '{"id":' + $id + ',"ok":true,"data":' + $data + '}'

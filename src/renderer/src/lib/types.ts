@@ -38,6 +38,7 @@ export interface Settings {
     style: 'glass' | 'basic'
     mode: 'dark' | 'light'
     background: 'photos' | 'fixed' | 'plain' | 'transparent'
+    nav: 'left' | 'top' | 'right'
   }
   wallpaper: {
     auto: boolean
@@ -51,7 +52,8 @@ export interface Settings {
   overlay: { enabled: boolean }
   audio: { switchHotkey: string }
   weather: { name: string; lat: number; lon: number } | null
-  dashboard: { widgets: WidgetConfig[] }
+  dashboard: { widgets: WidgetConfig[]; widgets2: WidgetConfig[] }
+  screens: { dual: boolean; displayId: number | null }
   performance: { intervalSec: number }
   accent: string
 }
