@@ -71,6 +71,11 @@ const api = {
     navigate: (tab: string) => ipcRenderer.invoke('overlay:navigate', tab),
     onMenu: (cb: (open: boolean) => void) => subscribe('overlay:menu', cb)
   },
+  update: {
+    state: () => ipcRenderer.invoke('update:state'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onChanged: (cb: (s: unknown) => void) => subscribe('update:changed', cb)
+  },
   nav: {
     onGoto: (cb: (tab: string) => void) => subscribe('nav:goto', cb)
   }

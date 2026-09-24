@@ -27,6 +27,7 @@ export default function App(): JSX.Element {
   const [panelOpen, setPanelOpen] = useState(false)
   const [isWindows, setIsWindows] = useState(true)
   const [hotkeys, setHotkeys] = useState({ menu: 'Alt+Q', hide: 'Alt+H' })
+  const [appUpdate, setAppUpdate] = useState<{ status: string; version?: string }>({ status: 'idle' })
   const { sample, history } = usePerf()
   const { settings, update } = useSettings()
   const walls = useWallpapers(settings, update)
@@ -39,9 +40,15 @@ export default function App(): JSX.Element {
         if (info?.hotkeys) setHotkeys(info.hotkeys)
       })
       .catch(() => setIsWindows(false))
-    return window.znerol.nav.onGoto((t) => {
+    window.znerol.update.state().then(setAppUpdate).catch(() => undefined)
+    const offUpdate = window.znerol.update.onChanged((s) => setAppUpdate(s as { status: string; version?: string }))
+    const offNav = window.znerol.nav.onGoto((t) => {
       if (TABS.some((x) => x.id === t)) setTab(t as TabId)
     })
+    return () => {
+      offUpdate()
+      offNav()
+    }
   }, [])
 
   const style = {
@@ -72,6 +79,12 @@ export default function App(): JSX.Element {
             </button>
           ))}
         </nav>
+        {appUpdate.status === 'ready' && (
+          <button type="button" className="update-btn" onClick={() => window.znerol.update.install()}>
+            Update {appUpdate.version} · jetzt neu starten
+          </button>
+        )}
+        {appUpdate.status === 'downloading' && <span className="update-note">Update {appUpdate.version} wird geladen…</span>}
         <button
           type="button"
           className={`icon-btn ${panelOpen ? 'active' : ''}`}

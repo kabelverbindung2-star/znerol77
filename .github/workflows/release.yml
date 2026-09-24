@@ -1,0 +1,47 @@
+name: Windows-Build und Release
+
+# Every push to the app branch builds a Windows installer and publishes it as a
+# GitHub release; the installed app picks it up through electron-updater.
+on:
+  push:
+    branches:
+      - claude/zenrolmonitor-zugriff-ss3wo0
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Versionsnummer setzen (2.0.<Lauf>)
+        shell: bash
+        run: npm version "2.0.${{ github.run_number }}" --no-git-tag-version
+
+      - name: Typen prüfen
+        run: npm run typecheck
+
+      - name: App bauen
+        run: npx electron-vite build
+
+      - name: Installer bauen und veröffentlichen
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

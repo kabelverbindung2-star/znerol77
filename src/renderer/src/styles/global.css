@@ -190,6 +190,30 @@ select {
   font-weight: 600;
 }
 
+.update-btn {
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+  border: none;
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.update-note {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.update-btn + .icon-btn,
+.update-note + .icon-btn {
+  margin-left: 0;
+}
+
 .icon-btn {
   margin-left: auto;
   width: 34px;

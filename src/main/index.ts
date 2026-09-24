@@ -33,6 +33,8 @@ import {
   toggleMenu
 } from './modules/overlay'
 
+import { startAutoUpdates, getUpdateState, installUpdateNow } from './modules/updater'
+
 const PRELOAD = join(__dirname, '../preload/index.mjs')
 const MENU_HOTKEY = 'Alt+Q'
 const HIDE_HOTKEY = 'Alt+H'
@@ -190,6 +192,9 @@ function wireIpc(): void {
   ipcMain.handle('wallpapers:addCustom', () => addCustomWallpapers(mainWindow))
   ipcMain.handle('wallpapers:removeCustom', (_e, id: string) => removeCustomWallpaper(id))
 
+  ipcMain.handle('update:state', () => getUpdateState())
+  ipcMain.handle('update:install', () => installUpdateNow())
+
   ipcMain.handle('overlay:setEnabled', async (_e, enabled: boolean) => {
     setOverlayVisible(enabled)
     await updateSettings({ overlay: { enabled } })
@@ -211,6 +216,7 @@ app.whenReady().then(async () => {
   registerOverlayHotkeys()
   startPerfLoop(allWindows)
   syncCommonsWallpapers().catch(() => undefined)
+  startAutoUpdates((s) => broadcast('update:changed', s))
 
   app.on('activate', () => {
     if (!mainWindow) createMainWindow()
