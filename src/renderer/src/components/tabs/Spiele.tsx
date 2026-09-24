@@ -26,6 +26,9 @@ export default function Spiele(): JSX.Element {
 
     const saved = localStorage.getItem(BLOCKLIST_KEY)
     setBlocklistText(saved ? JSON.parse(saved).join(', ') : DEFAULT_BLOCKLIST.join(', '))
+
+    window.znerol.games.boostState().then(setBoostOn).catch(() => undefined)
+    return window.znerol.games.onBoost(setBoostOn)
   }, [])
 
   const launch = (appId: string): void => {

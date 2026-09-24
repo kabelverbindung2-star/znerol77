@@ -1,0 +1,266 @@
+:root {
+  --accent: #c6f432;
+  --text: #f2f4ee;
+  --text-dim: rgba(255, 255, 255, 0.7);
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Geist Variable', 'Segoe UI', sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+.mono {
+  font-family: 'Geist Mono Variable', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.ov {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+.ov-glass {
+  background: rgba(10, 11, 9, 0.62);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.ov-rail {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  width: 196px;
+  padding: 14px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ov-metric-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ov-metric-head b {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-metric-head small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.bars {
+  margin-top: 5px;
+  height: 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.bars span {
+  flex: 1;
+  border-radius: 2px;
+}
+
+.ov-cards {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ov-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.ov-tile {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.ov-tile.accent {
+  background: var(--accent);
+  color: #0a0b09;
+}
+
+.ov-card-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ov-card-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.ov-net {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 200px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ov-net-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ov-net-values {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ov-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadein 0.15s ease both;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+}
+
+.ov-radial {
+  position: relative;
+  width: 400px;
+  height: 400px;
+  animation: pop 0.18s ease both;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.ov-radial svg path {
+  transition: fill 0.12s ease;
+}
+
+.ov-seg {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 96px;
+  height: 64px;
+  border: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 12px;
+  outline: none;
+}
+
+.ov-seg.active {
+  color: #0a0b09;
+}
+
+.ov-seg:focus-visible {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+.ov-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.ov-center span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ov-center b {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.ov-center small {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ov-hint {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+kbd {
+  font-family: 'Geist Mono Variable', monospace;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom-width: 2px;
+  color: var(--text);
+}

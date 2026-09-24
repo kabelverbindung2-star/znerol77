@@ -1,43 +1,47 @@
 # ZnerolMonitor
 
-System-Monitor, Prozessmanager, Autostart-Verwaltung, Autoclicker, Audio-Steuerung und ein Spiele-Hub mit Boost-Modus – als Electron-Desktop-App.
+Systemmonitor und Gaming-Werkzeugkasten für Windows, mit Glas-Oberfläche über wechselnden Naturfotos und einem Overlay, das über dem Spiel liegt.
 
-## Tabs
+## Was drin ist
 
-- **Leistung** – Live CPU/RAM/Netzwerk/Disk/GPU-Monitoring mit Sparklines und Ring-Gauges (funktioniert plattformübergreifend, `systeminformation`-basiert).
-- **Prozesse** – Sortierbare Prozessliste, Prozess beenden, Priorität ändern.
-- **Autostart** – Registry-`Run`-Einträge und Startup-Ordner verwalten, aktivieren/deaktivieren, hinzufügen, entfernen.
-- **Autoclicker** – Mehrere Profile, konfigurierbares Intervall + Zufalls-Delay, Links/Rechts/Mitte, Einzel-/Doppelklick, feste oder aktuelle Position, globaler Hotkey.
-- **Audio** – Master-Lautstärke & Stummschaltung über die Windows Core-Audio-API, Liste der Ausgabegeräte.
-- **Spiele** – Erkennt installierte Steam-Spiele (alle Bibliotheken), Schnellstart, Gaming-Boost-Modus (Höchstleistungs-Energieplan + konfigurierbare Hintergrundprozesse beenden).
+**App-Fenster**
+- **Übersicht**: Uhrzeit, CPU/GPU/RAM/Temperatur mit Verlauf, größte Verbraucher, Netzwerk, Laufwerke, Schnellzugriff (Overlay, Boost, Autoclicker, mit Windows starten).
+- **Prozesse**: sortier- und filterbare Liste, beenden, Priorität ändern.
+- **Autostart**: Registry-`Run`-Einträge und Startup-Ordner verwalten.
+- **Klicker**: Profile, Intervall + Zufalls-Delay, Maustaste, Einzel/Doppel, feste oder aktuelle Position, globaler Hotkey.
+- **Audio**: Master-Lautstärke, Stummschaltung, Geräteliste.
+- **Spiele**: installierte Steam-Spiele, Schnellstart, Boost-Modus.
 
-## Plattform-Hinweis
+**Hintergründe** (Bild-Knopf oben rechts)
+- Beim ersten Start lädt die App bis zu 50 freie Landschaftsfotos von Wikimedia Commons (Kategorie „Featured pictures of landscapes“) und speichert sie lokal. Name und Fotograf stehen unten links.
+- Automatischer Wechsel (5 Min. bis täglich, zufällig oder nacheinander), manuelle Auswahl, eigene Bilder hinzufügen, Unschärfe und Abdunkeln einstellbar.
+- Ohne Internet gibt es 9 gezeichnete Szenen als Ersatz.
 
-Prozess-/Arbeitsspeicher-/Netzwerk-Monitoring läuft auf jeder Plattform. **Autostart, Autoclicker, Audio-Steuerung und Boost-Modus benötigen Windows** – sie sprechen die Windows-Registry, den Startup-Ordner, `user32.dll` (Mauseingaben) und die Core-Audio-API über eingebettete, schlanke PowerShell-Helfer an (keine fragilen nativen Node-Addons wie `robotjs`, die bei jedem Electron-Update neu kompiliert werden müssten).
+**Spiel-Overlay** (eigenes, durchsichtiges Fenster)
+- Links CPU/GPU/RAM/Temperatur, rechts Boost- und Klicker-Status, unten rechts Netzwerk.
+- `Alt+Q` öffnet das Radialmenü (springt in den gewählten Bereich der App), `Esc` schließt, `Alt+H` blendet das Overlay aus.
+- Klicks gehen durch das Overlay ans Spiel, solange das Menü zu ist.
+- Funktioniert bei Spielen im Fenster- oder randlosen Vollbildmodus. Über exklusivem Vollbild kann Windows kein normales Fenster anzeigen.
 
-## Entwicklung
+## Starten
 
 ```bash
 npm install
-npm run dev       # Dev-Modus mit Hot-Reload
-npm run build     # Produktions-Build (electron-vite)
-npm run typecheck # TypeScript-Prüfung
-npm run dist:win  # Windows-Installer via electron-builder
+npm run dev        # Entwicklung mit Hot-Reload
+npm run dist:win   # Windows-Installer nach release/
 ```
 
-## Architektur
+## Grenzen
+
+- Autostart, Klicker, Audio und Boost benötigen Windows (PowerShell-Helfer, keine nativen Node-Addons).
+- CPU-Temperatur liefert Windows oft nur mit Administratorrechten; ohne steht dort „–“.
+- FPS-Anzeige und Lautstärke pro App sind nicht eingebaut – beides bräuchte tiefe Eingriffe (Grafik-Hooks bzw. native Audio-Sitzungs-API).
+
+## Aufbau
 
 ```
-src/
-  main/            Electron-Hauptprozess
-    modules/
-      perf.ts          Live-Systemmetriken (systeminformation)
-      processes.ts      Prozessliste, kill, Priorität
-      autostart.ts      Registry Run-Keys + Startup-Ordner
-      autoclicker.ts    Persistenter PowerShell-Helper für Mausklicks
-      audio.ts          Core-Audio-COM-Interop (Lautstärke/Mute)
-      games.ts          Steam-Library-Scan + Boost-Modus
-      platform.ts       PowerShell-Hilfsfunktionen
-  preload/         contextBridge-API (window.znerol.*)
-  renderer/        React-UI (Sidebar-Navigation, 6 Tabs)
+src/main/modules/   perf, processes, autostart, autoclicker, audio, games,
+                    settings, wallpapers (Download + zwall://-Protokoll), overlay
+src/preload/        window.znerol.* Bridge
+src/renderer/       index.html (App-Fenster), overlay.html (Spiel-Overlay)
 ```

@@ -15,19 +15,30 @@ export interface PerfSample {
 let lastNet: { rx: number; tx: number; ts: number } | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 
+// GPU, disk, temperature and OS queries are expensive on Windows (WMI / nvidia-smi),
+// so they refresh every few ticks instead of every sample.
+let tick = 0
+let slow: { temp: any; fsSize: any[]; graphics: any; osInfo: any } | null = null
+
 async function sample(): Promise<PerfSample> {
-  const [cpuLoad, mem, temp, cpuSpeed, netStats, fsSize, graphics, time, osInfo] =
-    await Promise.all([
-      si.currentLoad(),
-      si.mem(),
+  if (!slow || tick % 5 === 0) {
+    const [temp, fsSize, graphics, osInfo] = await Promise.all([
       si.cpuTemperature().catch(() => ({ main: null }) as any),
-      si.cpuCurrentSpeed().catch(() => ({ avg: null }) as any),
-      si.networkStats().catch(() => [] as any[]),
       si.fsSize().catch(() => [] as any[]),
       si.graphics().catch(() => ({ controllers: [] }) as any),
-      si.time(),
       si.osInfo()
     ])
+    slow = { temp, fsSize, graphics, osInfo }
+  }
+  tick += 1
+  const { temp, fsSize, graphics, osInfo } = slow
+  const [cpuLoad, mem, cpuSpeed, netStats, time] = await Promise.all([
+    si.currentLoad(),
+    si.mem(),
+    si.cpuCurrentSpeed().catch(() => ({ avg: null }) as any),
+    si.networkStats().catch(() => [] as any[]),
+    si.time()
+  ])
 
   const now = Date.now()
   let rx = 0
@@ -81,16 +92,21 @@ async function sample(): Promise<PerfSample> {
   }
 }
 
-export function startPerfLoop(getWindow: () => BrowserWindow | null, intervalMs = 1500): void {
+let busy = false
+
+export function startPerfLoop(getWindows: () => BrowserWindow[], intervalMs = 1500): void {
   if (timer) return
   timer = setInterval(async () => {
-    const win = getWindow()
-    if (!win || win.isDestroyed()) return
+    const targets = getWindows().filter((w) => !w.isDestroyed() && w.isVisible())
+    if (targets.length === 0 || busy) return
+    busy = true
     try {
       const data = await sample()
-      win.webContents.send('perf:update', data)
+      for (const w of targets) w.webContents.send('perf:update', data)
     } catch {
       // systeminformation can throw transiently on some platforms; ignore this tick
+    } finally {
+      busy = false
     }
   }, intervalMs)
 }

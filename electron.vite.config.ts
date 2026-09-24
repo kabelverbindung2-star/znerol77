@@ -27,7 +27,10 @@ export default defineConfig({
     root: resolve(__dirname, 'src/renderer'),
     build: {
       rollupOptions: {
-        input: resolve(__dirname, 'src/renderer/index.html')
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          overlay: resolve(__dirname, 'src/renderer/overlay.html')
+        }
       }
     },
     plugins: [react()]

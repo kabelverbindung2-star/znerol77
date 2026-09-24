@@ -1,84 +1,120 @@
-import { useEffect, useState } from 'react'
-import {
-  ActivityIcon,
-  ListIcon,
-  PowerIcon,
-  ClickIcon,
-  VolumeIcon,
-  GamepadIcon,
-  SunIcon,
-  MoonIcon
-} from './components/ui/Icons'
-import Leistung from './components/tabs/Leistung'
+import { useEffect, useState, type CSSProperties } from 'react'
+import Background from './components/Background'
+import WallpaperPanel from './components/WallpaperPanel'
+import Uebersicht from './components/tabs/Uebersicht'
 import Prozesse from './components/tabs/Prozesse'
 import Autostart from './components/tabs/Autostart'
 import Autoclicker from './components/tabs/Autoclicker'
 import Audio from './components/tabs/Audio'
 import Spiele from './components/tabs/Spiele'
+import { usePerf } from './lib/usePerf'
+import { useSettings } from './lib/useSettings'
+import { useWallpapers } from './lib/useWallpapers'
 
 const TABS = [
-  { id: 'leistung', label: 'Leistung', icon: ActivityIcon, component: Leistung },
-  { id: 'prozesse', label: 'Prozesse', icon: ListIcon, component: Prozesse },
-  { id: 'autostart', label: 'Autostart', icon: PowerIcon, component: Autostart },
-  { id: 'autoclicker', label: 'Autoclicker', icon: ClickIcon, component: Autoclicker },
-  { id: 'audio', label: 'Audio', icon: VolumeIcon, component: Audio },
-  { id: 'spiele', label: 'Spiele', icon: GamepadIcon, component: Spiele }
+  { id: 'uebersicht', label: 'Übersicht' },
+  { id: 'prozesse', label: 'Prozesse' },
+  { id: 'autostart', label: 'Autostart' },
+  { id: 'autoclicker', label: 'Klicker' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'spiele', label: 'Spiele' }
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
 
 export default function App(): JSX.Element {
-  const [active, setActive] = useState<TabId>('leistung')
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [tab, setTab] = useState<TabId>('uebersicht')
+  const [panelOpen, setPanelOpen] = useState(false)
   const [isWindows, setIsWindows] = useState(true)
+  const [hotkeys, setHotkeys] = useState({ menu: 'Alt+Q', hide: 'Alt+H' })
+  const { sample, history } = usePerf()
+  const { settings, update } = useSettings()
+  const walls = useWallpapers(settings, update)
 
   useEffect(() => {
-    window.znerol?.system
+    window.znerol.system
       .info()
-      .then((info: any) => setIsWindows(Boolean(info?.isWindows)))
+      .then((info: any) => {
+        setIsWindows(Boolean(info?.isWindows))
+        if (info?.hotkeys) setHotkeys(info.hotkeys)
+      })
       .catch(() => setIsWindows(false))
+    return window.znerol.nav.onGoto((t) => {
+      if (TABS.some((x) => x.id === t)) setTab(t as TabId)
+    })
   }, [])
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-  }, [theme])
+  const style = {
+    '--accent': settings.accent,
+    '--blur': `${settings.wallpaper.blur}px`
+  } as CSSProperties
 
-  const ActiveComponent = TABS.find((t) => t.id === active)?.component ?? Leistung
+  const goto = (t: string): void => {
+    if (TABS.some((x) => x.id === t)) setTab(t as TabId)
+  }
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark" />
-          <span className="brand-name">ZnerolMonitor</span>
-        </div>
-        <nav className="nav">
-          {TABS.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                className={`nav-item ${active === tab.id ? 'active' : ''}`}
-                onClick={() => setActive(tab.id)}
-              >
-                <Icon className="nav-icon" />
-                {tab.label}
-              </button>
-            )
-          })}
+    <div className={`app ${panelOpen ? 'with-panel' : ''}`} style={style}>
+      <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />
+
+      <header className="titlebar">
+        <span className="logo">Znerol</span>
+        <nav className="segmented" aria-label="Bereiche">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={tab === t.id ? 'active' : ''}
+              aria-current={tab === t.id ? 'page' : undefined}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
         </nav>
-        <div className="sidebar-footer">
-          <button className="theme-toggle" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-            <span>{theme === 'dark' ? 'Dunkles Design' : 'Helles Design'}</span>
-            {theme === 'dark' ? <MoonIcon className="nav-icon" /> : <SunIcon className="nav-icon" />}
-          </button>
-          {!isWindows && <span>⚠ Systemfunktionen benötigen Windows</span>}
-          <span>v1.0.0</span>
-        </div>
-      </aside>
-      <main className="main">
-        <ActiveComponent />
+        <button
+          type="button"
+          className={`icon-btn ${panelOpen ? 'active' : ''}`}
+          aria-label="Hintergrund-Einstellungen"
+          aria-pressed={panelOpen}
+          onClick={() => setPanelOpen((v) => !v)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <circle cx="9" cy="9" r="2" />
+            <path d="M21 15l-5-5L5 21" />
+          </svg>
+        </button>
+      </header>
+
+      <main className="content">
+        {!isWindows && tab !== 'uebersicht' && tab !== 'prozesse' && (
+          <div className="win-only-banner">Diese Funktion braucht Windows. Hier läuft nur die Anzeige.</div>
+        )}
+        {tab === 'uebersicht' && (
+          <Uebersicht sample={sample} history={history} settings={settings} update={update} goto={goto} hotkeys={hotkeys} />
+        )}
+        {tab === 'prozesse' && <Prozesse />}
+        {tab === 'autostart' && <Autostart />}
+        {tab === 'autoclicker' && <Autoclicker />}
+        {tab === 'audio' && <Audio />}
+        {tab === 'spiele' && <Spiele />}
       </main>
+
+      {panelOpen && (
+        <WallpaperPanel
+          settings={settings}
+          update={update}
+          all={walls.all}
+          current={walls.current}
+          nextAt={walls.nextAt}
+          onSelect={walls.select}
+          onNext={walls.next}
+          onClose={() => setPanelOpen(false)}
+        />
+      )}
+
+      {walls.current.credit && <div className="credit">{walls.current.name} · {walls.current.credit}</div>}
     </div>
   )
 }

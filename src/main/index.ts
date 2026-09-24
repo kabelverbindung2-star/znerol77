@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, globalShortcut, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
 import { is } from './modules/env'
 import { startPerfLoop, stopPerfLoop } from './modules/perf'
@@ -14,49 +14,109 @@ import { clickerEngine, defaultProfiles, type AutoClickerProfile } from './modul
 import { getAudioState, setVolume, setMuted } from './modules/audio'
 import { listGames, enableGameBoost, disableGameBoost, launchGame } from './modules/games'
 import { isWindows } from './modules/platform'
+import { getSettings, updateSettings } from './modules/settings'
+import {
+  registerWallpaperScheme,
+  handleWallpaperProtocol,
+  setWallpaperListener,
+  listWallpapers,
+  syncCommonsWallpapers,
+  addCustomWallpapers,
+  removeCustomWallpaper
+} from './modules/wallpapers'
+import {
+  createOverlayWindow,
+  getOverlayWindow,
+  setOverlayVisible,
+  isOverlayVisible,
+  setMenuOpen,
+  toggleMenu
+} from './modules/overlay'
+
+const PRELOAD = join(__dirname, '../preload/index.mjs')
+const MENU_HOTKEY = 'Alt+Q'
+const HIDE_HOTKEY = 'Alt+H'
 
 let mainWindow: BrowserWindow | null = null
 let registeredHotkey: string | null = null
+let boostActive = false
 
-function createWindow(): void {
+registerWallpaperScheme()
+
+function loadPage(win: BrowserWindow, page: 'index' | 'overlay'): void {
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${page}.html`)
+  } else {
+    win.loadFile(join(__dirname, `../renderer/${page}.html`))
+  }
+}
+
+function allWindows(): BrowserWindow[] {
+  return BrowserWindow.getAllWindows()
+}
+
+function broadcast(channel: string, payload?: unknown): void {
+  for (const w of allWindows()) if (!w.isDestroyed()) w.webContents.send(channel, payload)
+}
+
+function createMainWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 960,
-    height: 720,
-    minWidth: 760,
-    minHeight: 560,
+    width: 1280,
+    height: 800,
+    minWidth: 980,
+    minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0d1117',
-    titleBarStyle: 'default',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
-      sandbox: false
-    }
+    backgroundColor: '#0A0B09',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#00000000', symbolColor: '#F2F4EE', height: 44 },
+    webPreferences: { preload: PRELOAD, sandbox: false }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-  })
-
+  mainWindow.on('ready-to-show', () => mainWindow?.show())
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
     return { action: 'deny' }
   })
+  mainWindow.on('closed', () => {
+    mainWindow = null
+    getOverlayWindow()?.close()
+  })
+  loadPage(mainWindow, 'index')
+}
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+async function createOverlay(): Promise<void> {
+  const settings = await getSettings()
+  const overlay = createOverlayWindow(PRELOAD, (w) => loadPage(w, 'overlay'))
+  overlay.once('ready-to-show', () => {
+    if (settings.overlay.enabled) overlay.showInactive()
+  })
+}
 
-  startPerfLoop(() => mainWindow)
+function showMainWindow(tab?: string): void {
+  if (!mainWindow) createMainWindow()
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+  if (tab) mainWindow.webContents.send('nav:goto', tab)
+}
+
+function registerOverlayHotkeys(): void {
+  globalShortcut.register(MENU_HOTKEY, () => toggleMenu())
+  globalShortcut.register(HIDE_HOTKEY, async () => {
+    const visible = !isOverlayVisible()
+    setOverlayVisible(visible)
+    await updateSettings({ overlay: { enabled: visible } })
+    broadcast('settings:changed')
+  })
 }
 
 function wireIpc(): void {
   ipcMain.handle('system:info', () => ({
     isWindows,
     platform: process.platform,
-    versions: process.versions
+    hotkeys: { menu: MENU_HOTKEY, hide: HIDE_HOTKEY }
   }))
 
   ipcMain.handle('processes:list', () => listProcesses())
@@ -73,10 +133,13 @@ function wireIpc(): void {
   ipcMain.handle('autostart:toggle', (_e, entry: AutostartEntry, enable: boolean) =>
     toggleAutostartEntry(entry, enable)
   )
-
-  clickerEngine.setStatusListener((status) => {
-    mainWindow?.webContents.send('autoclicker:status', status)
+  ipcMain.handle('app:getLoginItem', () => app.getLoginItemSettings().openAtLogin)
+  ipcMain.handle('app:setLoginItem', (_e, enabled: boolean) => {
+    app.setLoginItemSettings({ openAtLogin: enabled })
+    return app.getLoginItemSettings().openAtLogin
   })
+
+  clickerEngine.setStatusListener((status) => broadcast('autoclicker:status', status))
   ipcMain.handle('autoclicker:defaultProfiles', () => defaultProfiles)
   ipcMain.handle('autoclicker:start', (_e, profile: AutoClickerProfile) =>
     clickerEngine.start(profile)
@@ -88,10 +151,9 @@ function wireIpc(): void {
       globalShortcut.unregister(registeredHotkey)
       registeredHotkey = null
     }
-    if (!accelerator) return true
+    if (!accelerator || accelerator === MENU_HOTKEY || accelerator === HIDE_HOTKEY) return false
     const ok = globalShortcut.register(accelerator, () => {
-      const status = clickerEngine.getStatus()
-      if (status.running) clickerEngine.stop()
+      if (clickerEngine.getStatus().running) clickerEngine.stop()
       else clickerEngine.start(profile).catch(() => undefined)
     })
     if (ok) registeredHotkey = accelerator
@@ -104,18 +166,54 @@ function wireIpc(): void {
 
   ipcMain.handle('games:list', () => listGames())
   ipcMain.handle('games:launch', (_e, appId: string) => shell.openExternal(launchGame(appId)))
-  ipcMain.handle('games:boostOn', (_e, blocklist: string[]) => enableGameBoost(blocklist))
-  ipcMain.handle('games:boostOff', () => disableGameBoost())
+  ipcMain.handle('games:boostState', () => boostActive)
+  ipcMain.handle('games:boostOn', async (_e, blocklist: string[]) => {
+    await enableGameBoost(blocklist)
+    boostActive = true
+    broadcast('boost:changed', true)
+  })
+  ipcMain.handle('games:boostOff', async () => {
+    await disableGameBoost()
+    boostActive = false
+    broadcast('boost:changed', false)
+  })
 
-  ipcMain.handle('theme:isDark', () => nativeTheme.shouldUseDarkColors)
+  ipcMain.handle('settings:get', () => getSettings())
+  ipcMain.handle('settings:update', async (_e, patch) => {
+    const next = await updateSettings(patch)
+    broadcast('settings:changed')
+    return next
+  })
+
+  ipcMain.handle('wallpapers:list', () => listWallpapers())
+  ipcMain.handle('wallpapers:sync', () => syncCommonsWallpapers(true))
+  ipcMain.handle('wallpapers:addCustom', () => addCustomWallpapers(mainWindow))
+  ipcMain.handle('wallpapers:removeCustom', (_e, id: string) => removeCustomWallpaper(id))
+
+  ipcMain.handle('overlay:setEnabled', async (_e, enabled: boolean) => {
+    setOverlayVisible(enabled)
+    await updateSettings({ overlay: { enabled } })
+    broadcast('settings:changed')
+  })
+  ipcMain.handle('overlay:closeMenu', () => setMenuOpen(false))
+  ipcMain.handle('overlay:navigate', (_e, tab: string) => {
+    setMenuOpen(false)
+    showMainWindow(tab)
+  })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  handleWallpaperProtocol()
+  setWallpaperListener(allWindows)
   wireIpc()
-  createWindow()
+  createMainWindow()
+  await createOverlay()
+  registerOverlayHotkeys()
+  startPerfLoop(allWindows)
+  syncCommonsWallpapers().catch(() => undefined)
 
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  app.on('activate', () => {
+    if (!mainWindow) createMainWindow()
   })
 })
 
