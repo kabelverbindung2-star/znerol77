@@ -38,6 +38,9 @@ jobs:
       - name: Typen prüfen
         run: npm run typecheck
 
+      - name: Windows-Helfer testen (PowerShell + C#)
+        run: node scripts/test-helper.mjs
+
       - name: App bauen
         run: npx electron-vite build
 

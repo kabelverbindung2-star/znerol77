@@ -264,3 +264,31 @@ kbd {
   border-bottom-width: 2px;
   color: var(--text);
 }
+
+.ov-toast {
+  position: absolute;
+  left: 50%;
+  top: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px 12px 12px;
+  border-radius: 18px;
+  min-width: 260px;
+  animation: toastIn 0.2s ease both, toastOut 0.3s ease 2.1s forwards;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+
+@keyframes toastOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}

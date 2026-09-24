@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
 import { is } from './modules/env'
-import { startPerfLoop, stopPerfLoop } from './modules/perf'
+import { startPerfLoop, stopPerfLoop, startSystemQueries, stopSystemQueries } from './modules/perf'
 import { listProcesses, killProcess, setProcessPriority } from './modules/processes'
 import {
   listAutostart,
@@ -11,7 +11,20 @@ import {
   type AutostartEntry
 } from './modules/autostart'
 import { clickerEngine, defaultProfiles, type AutoClickerProfile } from './modules/autoclicker'
-import { getAudioState, setVolume, setMuted } from './modules/audio'
+import {
+  getAudioState,
+  setVolume,
+  setMuted,
+  setDefaultDevice,
+  cycleDevice,
+  listSessions,
+  setSessionMute,
+  setSessionVolume,
+  getMedia,
+  mediaControl
+} from './modules/audio'
+import { searchPlaces, getWeather } from './modules/weather'
+import { winHelper } from './modules/winhelper'
 import { listGames, enableGameBoost, disableGameBoost, launchGame } from './modules/games'
 import { isWindows } from './modules/platform'
 import { getSettings, updateSettings } from './modules/settings'
@@ -25,14 +38,14 @@ import {
   removeCustomWallpaper
 } from './modules/wallpapers'
 import {
-  createOverlayWindow,
+  ensureOverlay,
   getOverlayWindow,
   setOverlayVisible,
   isOverlayVisible,
   setMenuOpen,
-  toggleMenu
+  isMenuOpen,
+  showToast
 } from './modules/overlay'
-
 import { startAutoUpdates, getUpdateState, installUpdateNow } from './modules/updater'
 
 const PRELOAD = join(__dirname, '../preload/index.mjs')
@@ -41,6 +54,7 @@ const HIDE_HOTKEY = 'Alt+H'
 
 let mainWindow: BrowserWindow | null = null
 let registeredHotkey: string | null = null
+let audioHotkey: string | null = null
 let boostActive = false
 
 registerWallpaperScheme()
@@ -87,12 +101,15 @@ function createMainWindow(): void {
   loadPage(mainWindow, 'index')
 }
 
-async function createOverlay(): Promise<void> {
-  const settings = await getSettings()
-  const overlay = createOverlayWindow(PRELOAD, (w) => loadPage(w, 'overlay'))
-  overlay.once('ready-to-show', () => {
-    if (settings.overlay.enabled) overlay.showInactive()
-  })
+function overlay(): Promise<BrowserWindow> {
+  return ensureOverlay(PRELOAD, (w) => loadPage(w, 'overlay'))
+}
+
+async function setOverlayEnabled(enabled: boolean): Promise<void> {
+  if (enabled) await overlay()
+  setOverlayVisible(enabled)
+  await updateSettings({ overlay: { enabled } })
+  broadcast('settings:changed')
 }
 
 function showMainWindow(tab?: string): void {
@@ -105,13 +122,40 @@ function showMainWindow(tab?: string): void {
 }
 
 function registerOverlayHotkeys(): void {
-  globalShortcut.register(MENU_HOTKEY, () => toggleMenu())
-  globalShortcut.register(HIDE_HOTKEY, async () => {
-    const visible = !isOverlayVisible()
-    setOverlayVisible(visible)
-    await updateSettings({ overlay: { enabled: visible } })
-    broadcast('settings:changed')
+  globalShortcut.register(MENU_HOTKEY, async () => {
+    await overlay()
+    setMenuOpen(!isMenuOpen())
   })
+  globalShortcut.register(HIDE_HOTKEY, () => {
+    setOverlayEnabled(!isOverlayVisible()).catch(() => undefined)
+  })
+}
+
+async function switchAudioDevice(): Promise<void> {
+  try {
+    const next = await cycleDevice()
+    await overlay()
+    if (next) showToast({ title: next.name, sub: next.count > 1 ? 'Audioausgabe gewechselt' : 'Nur ein Ausgabegerät aktiv' })
+    broadcast('audio:changed')
+  } catch (e) {
+    await overlay()
+    showToast({ title: 'Audio wechseln fehlgeschlagen', sub: (e as Error).message })
+  }
+}
+
+/** Registers the hotkey that cycles the output device; returns false if it is taken. */
+function registerAudioHotkey(accelerator: string): boolean {
+  if (audioHotkey) {
+    globalShortcut.unregister(audioHotkey)
+    audioHotkey = null
+  }
+  if (!accelerator) return true
+  if ([MENU_HOTKEY, HIDE_HOTKEY, registeredHotkey].includes(accelerator)) return false
+  const ok = globalShortcut.register(accelerator, () => {
+    switchAudioDevice()
+  })
+  if (ok) audioHotkey = accelerator
+  return ok
 }
 
 function wireIpc(): void {
@@ -153,7 +197,7 @@ function wireIpc(): void {
       globalShortcut.unregister(registeredHotkey)
       registeredHotkey = null
     }
-    if (!accelerator || accelerator === MENU_HOTKEY || accelerator === HIDE_HOTKEY) return false
+    if (!accelerator || [MENU_HOTKEY, HIDE_HOTKEY, audioHotkey].includes(accelerator)) return false
     const ok = globalShortcut.register(accelerator, () => {
       if (clickerEngine.getStatus().running) clickerEngine.stop()
       else clickerEngine.start(profile).catch(() => undefined)
@@ -165,6 +209,25 @@ function wireIpc(): void {
   ipcMain.handle('audio:get', () => getAudioState())
   ipcMain.handle('audio:setVolume', (_e, percent: number) => setVolume(percent))
   ipcMain.handle('audio:setMuted', (_e, muted: boolean) => setMuted(muted))
+  ipcMain.handle('audio:setDefault', (_e, id: string) => setDefaultDevice(id))
+  ipcMain.handle('audio:cycle', () => switchAudioDevice())
+  ipcMain.handle('audio:sessions', () => listSessions())
+  ipcMain.handle('audio:sessionMute', (_e, pid: number, muted: boolean) => setSessionMute(pid, muted))
+  ipcMain.handle('audio:sessionVolume', (_e, pid: number, percent: number) => setSessionVolume(pid, percent))
+  ipcMain.handle('audio:media', () => getMedia())
+  ipcMain.handle('audio:mediaControl', (_e, action: 'next' | 'prev' | 'toggle') => mediaControl(action))
+  ipcMain.handle('audio:setHotkey', async (_e, accelerator: string) => {
+    const ok = registerAudioHotkey(accelerator)
+    if (ok) {
+      await updateSettings({ audio: { switchHotkey: accelerator } })
+      broadcast('settings:changed')
+    }
+    return ok
+  })
+  ipcMain.handle('audio:hotkeyState', () => audioHotkey)
+
+  ipcMain.handle('weather:search', (_e, query: string) => searchPlaces(query))
+  ipcMain.handle('weather:get', (_e, lat: number, lon: number) => getWeather(lat, lon))
 
   ipcMain.handle('games:list', () => listGames())
   ipcMain.handle('games:launch', (_e, appId: string) => shell.openExternal(launchGame(appId)))
@@ -195,11 +258,7 @@ function wireIpc(): void {
   ipcMain.handle('update:state', () => getUpdateState())
   ipcMain.handle('update:install', () => installUpdateNow())
 
-  ipcMain.handle('overlay:setEnabled', async (_e, enabled: boolean) => {
-    setOverlayVisible(enabled)
-    await updateSettings({ overlay: { enabled } })
-    broadcast('settings:changed')
-  })
+  ipcMain.handle('overlay:setEnabled', (_e, enabled: boolean) => setOverlayEnabled(enabled))
   ipcMain.handle('overlay:closeMenu', () => setMenuOpen(false))
   ipcMain.handle('overlay:navigate', (_e, tab: string) => {
     setMenuOpen(false)
@@ -211,9 +270,12 @@ app.whenReady().then(async () => {
   handleWallpaperProtocol()
   setWallpaperListener(allWindows)
   wireIpc()
+  startSystemQueries()
   createMainWindow()
-  await createOverlay()
+  const settings = await getSettings()
+  if (settings.overlay.enabled) setOverlayEnabled(true).catch(() => undefined)
   registerOverlayHotkeys()
+  registerAudioHotkey(settings.audio.switchHotkey)
   startPerfLoop(allWindows)
   syncCommonsWallpapers().catch(() => undefined)
   startAutoUpdates((s) => broadcast('update:changed', s))
@@ -225,6 +287,8 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   stopPerfLoop()
+  stopSystemQueries()
+  winHelper.dispose()
   clickerEngine.dispose()
   globalShortcut.unregisterAll()
   if (process.platform !== 'darwin') app.quit()
@@ -233,4 +297,5 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   clickerEngine.dispose()
+  winHelper.dispose()
 })

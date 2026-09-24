@@ -68,6 +68,7 @@ export default function OverlayApp(): JSX.Element {
   const [boost, setBoost] = useState(false)
   const [clicker, setClicker] = useState<ClickerStatus | null>(null)
   const [hotkeys, setHotkeys] = useState({ menu: 'Alt+Q', hide: 'Alt+H' })
+  const [toast, setToast] = useState<{ title: string; sub?: string; n: number } | null>(null)
 
   useEffect(() => {
     window.znerol.system.info().then((i: any) => i?.hotkeys && setHotkeys(i.hotkeys)).catch(() => undefined)
@@ -79,6 +80,7 @@ export default function OverlayApp(): JSX.Element {
         setHover(0)
       }),
       window.znerol.games.onBoost(setBoost),
+      window.znerol.overlay.onToast((t) => setToast({ ...t, n: Date.now() })),
       window.znerol.autoclicker.onStatus((s) => setClicker(s as ClickerStatus))
     ]
     return () => offs.forEach((off) => off())
@@ -92,6 +94,12 @@ export default function OverlayApp(): JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [menuOpen])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2400)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const segments = useMemo(() => ITEMS.map((_, k) => segmentPath(k)), [])
   const accent = settings.accent
@@ -107,6 +115,21 @@ export default function OverlayApp(): JSX.Element {
 
   return (
     <div className={`ov ${menuOpen ? 'menu-open' : ''}`} style={{ '--accent': accent } as CSSProperties}>
+      {toast && (
+        <div key={toast.n} className="ov-glass ov-toast" role="status">
+          <span className="ov-tile accent">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" />
+            </svg>
+          </span>
+          <div>
+            <div className="ov-card-title">{toast.title}</div>
+            {toast.sub && <div className="ov-card-sub">{toast.sub}</div>}
+          </div>
+        </div>
+      )}
+      {(settings.overlay.enabled || menuOpen) && (
+      <>
       <div className="ov-glass ov-rail">
         {rail.map((m) => (
           <div key={m.label} className="ov-metric">
@@ -161,6 +184,8 @@ export default function OverlayApp(): JSX.Element {
           ↓ {formatBytesPerSec(sample?.net.rx ?? 0)} · ↑ {formatBytesPerSec(sample?.net.tx ?? 0)}
         </div>
       </div>
+      </>
+      )}
 
       {menuOpen && (
         <div className="ov-backdrop" onClick={() => window.znerol.overlay.closeMenu()}>

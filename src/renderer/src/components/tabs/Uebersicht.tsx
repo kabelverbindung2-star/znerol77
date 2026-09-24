@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import Sparkline from '../ui/Sparkline'
 import Switch from '../ui/Switch'
+import InfoTip from '../ui/InfoTip'
+import WeatherChip from '../WeatherChip'
+import { usePoll } from '../../lib/usePoll'
 import type { PerfHistory } from '../../lib/usePerf'
 import type { ClickerStatus, PerfSample, ProcInfo, Settings } from '../../lib/types'
 import type { SettingsPatch } from '../../lib/useSettings'
@@ -16,7 +19,8 @@ interface Props {
 }
 
 const BOOST_KEY = 'znerol.boost.blocklist'
-const DEFAULT_BLOCKLIST = ['OneDrive', 'Spotify', 'Discord', 'Teams', 'Skype']
+// Discord and Spotify are deliberately not on here: most people game with them open.
+export const DEFAULT_BLOCKLIST = ['OneDrive', 'Teams', 'Skype']
 
 function useClock(): Date {
   const [now, setNow] = useState(new Date())
@@ -42,19 +46,16 @@ export default function Uebersicht({ sample, history, settings, update, goto, ho
   const [loginItem, setLoginItem] = useState(false)
   const [clicker, setClicker] = useState<ClickerStatus | null>(null)
 
+  // listing processes is expensive on Windows, so only every 10 s and only while visible
+  usePoll(async () => setProcs(((await window.znerol.processes.list()) as ProcInfo[]).slice(0, 7)), 10000)
+
   useEffect(() => {
-    const load = (): void => {
-      window.znerol.processes.list().then((l: ProcInfo[]) => setProcs(l.slice(0, 7))).catch(() => undefined)
-    }
-    load()
-    const t = setInterval(load, 4000)
     window.znerol.games.boostState().then(setBoost).catch(() => undefined)
     window.znerol.system.getLoginItem().then(setLoginItem).catch(() => undefined)
     window.znerol.autoclicker.status().then((s: ClickerStatus) => setClicker(s)).catch(() => undefined)
     const offBoost = window.znerol.games.onBoost(setBoost)
     const offClicker = window.znerol.autoclicker.onStatus((s) => setClicker(s as ClickerStatus))
     return () => {
-      clearInterval(t)
       offBoost()
       offClicker()
     }
@@ -131,7 +132,10 @@ export default function Uebersicht({ sample, history, settings, update, goto, ho
   return (
     <div className="overview">
       <div className="hero">
-        <div className="hero-time">{time}</div>
+        <div className="hero-row">
+          <div className="hero-time">{time}</div>
+          <WeatherChip location={settings.weather} update={update} />
+        </div>
         <div className="hero-sub">
           {greeting(now.getHours())} · {date} · {sample ? `${mood}, ${cpu.toFixed(0)} % CPU` : 'Messung startet…'}
         </div>
@@ -177,6 +181,15 @@ export default function Uebersicht({ sample, history, settings, update, goto, ho
             <span>Schnellzugriff</span>
           </div>
           <div className="quick">
+            <InfoTip
+              text={
+                <>
+                  Blendet über deinem Spiel kleine Anzeigen für CPU, GPU, RAM und Temperatur ein. {hotkeys.menu} öffnet
+                  ein Schnellmenü, {hotkeys.hide} blendet alles aus. Kostet etwas Leistung – nur einschalten, wenn du es
+                  brauchst. Funktioniert nicht bei Spielen im exklusiven Vollbild.
+                </>
+              }
+            >
             <div className="quick-row">
               <div>
                 <div className="quick-title">Spiel-Overlay</div>
@@ -192,13 +205,17 @@ export default function Uebersicht({ sample, history, settings, update, goto, ho
                 }}
               />
             </div>
+            </InfoTip>
+            <InfoTip text={<BoostExplainer />}>
             <div className="quick-row">
               <div>
                 <div className="quick-title">Boost</div>
-                <div className="quick-sub">Höchstleistung + Apps beenden</div>
+                <div className="quick-sub">Mehr Leistung fürs Spielen</div>
               </div>
               <Switch on={boost} disabled={boostBusy} onToggle={toggleBoost} />
             </div>
+            </InfoTip>
+            <InfoTip text="Klickt automatisch für dich – Tempo, Maustaste und Starttaste stellst du im Klicker-Tab ein.">
             <div className="quick-row">
               <div>
                 <div className="quick-title">Autoclicker</div>
@@ -210,6 +227,8 @@ export default function Uebersicht({ sample, history, settings, update, goto, ho
                 Öffnen
               </button>
             </div>
+            </InfoTip>
+            <InfoTip text="Startet ZnerolMonitor automatisch, wenn du dich bei Windows anmeldest.">
             <div className="quick-row">
               <div>
                 <div className="quick-title">Mit Windows starten</div>
@@ -220,6 +239,7 @@ export default function Uebersicht({ sample, history, settings, update, goto, ho
                 onToggle={(v) => window.znerol.system.setLoginItem(v).then(setLoginItem).catch(() => undefined)}
               />
             </div>
+            </InfoTip>
           </div>
         </div>
 
@@ -263,5 +283,25 @@ export default function Uebersicht({ sample, history, settings, update, goto, ho
         </div>
       </div>
     </div>
+  )
+}
+
+export function BoostExplainer(): JSX.Element {
+  let list = DEFAULT_BLOCKLIST
+  try {
+    const saved = localStorage.getItem(BOOST_KEY)
+    if (saved) list = JSON.parse(saved)
+  } catch {
+    // keep defaults
+  }
+  return (
+    <>
+      <b>Was Boost macht:</b>
+      <br />1. Stellt den Windows-Energiesparplan auf „Höchstleistung“ – der Prozessor taktet nicht mehr herunter.
+      <br />2. Beendet diese Programme im Hintergrund: {list.length ? list.join(', ') : 'keine'} (änderbar im Tab Spiele).
+      <br />
+      <b>Beim Ausschalten</b> kommt dein vorheriger Energiesparplan zurück. Beendete Programme startest du bei Bedarf selbst neu.
+      Der PC wird dabei eher lauter und wärmer, nicht leiser.
+    </>
   )
 }

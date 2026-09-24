@@ -26,7 +26,10 @@ const STORAGE_KEY = 'znerol.autoclicker.profiles'
 function loadProfiles(fallback: Profile[]): Profile[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      // F6 now switches the audio device; move the untouched default profile to F8
+      return (JSON.parse(raw) as Profile[]).map((p) => (p.id === 'default' && p.hotkey === 'F6' ? { ...p, hotkey: 'F8' } : p))
+    }
   } catch {
     // ignore corrupt storage
   }
@@ -243,7 +246,7 @@ export default function Autoclicker(): JSX.Element {
 
           <div className="row" style={{ alignItems: 'flex-end' }}>
             <div className="field" style={{ flex: 1 }}>
-              <label>Hotkey (z. B. F6, Control+Alt+K)</label>
+              <label>Starttaste (z. B. F8, Control+Alt+K)</label>
               <input type="text" value={active.hotkey} onChange={(e) => updateActive({ hotkey: e.target.value })} />
             </div>
             <button className="btn" style={{ marginBottom: 14 }} onClick={applyHotkey}>
@@ -252,7 +255,7 @@ export default function Autoclicker(): JSX.Element {
           </div>
           {hotkeyStatus === 'ok' && <div className="page-subtitle">Hotkey aktiv — startet/stoppt dieses Profil.</div>}
           {hotkeyStatus === 'failed' && (
-            <div className="win-only-banner">⚠ Hotkey konnte nicht registriert werden (evtl. bereits vergeben).</div>
+            <div className="win-only-banner">Diese Taste ist schon belegt (F6 wechselt z. B. das Audiogerät) oder ungültig.</div>
           )}
 
           <div className="card-actions">

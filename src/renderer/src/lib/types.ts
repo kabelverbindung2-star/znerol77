@@ -22,12 +22,63 @@ export interface Settings {
     auto: boolean
     intervalMin: number
     order: 'random' | 'sequential'
+    glass: boolean
     blur: number
     dim: number
     currentId: string | null
   }
   overlay: { enabled: boolean }
+  audio: { switchHotkey: string }
+  weather: { name: string; lat: number; lon: number } | null
   accent: string
+}
+
+export interface AudioDevice {
+  id: string
+  name: string
+  isDefault: boolean
+}
+
+export interface AudioSession {
+  pid: number
+  process: string
+  name: string
+  system: boolean
+  active: boolean
+  peak: number
+  volume: number
+  muted: boolean
+}
+
+export interface MediaInfo {
+  app: string
+  title: string
+  artist: string
+  album: string
+  status: string
+  canNext: boolean
+  canPrev: boolean
+  art: string | null
+}
+
+export interface Place {
+  name: string
+  region: string
+  country: string
+  lat: number
+  lon: number
+}
+
+export interface Weather {
+  temp: number
+  feelsLike: number
+  code: number
+  isDay: boolean
+  wind: number
+  humidity: number
+  min: number
+  max: number
+  fetchedAt: number
 }
 
 export interface ProcInfo {

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { ScenePalette } from '../../lib/palettes'
 
 const TREES: [number, number, number][] = [
@@ -7,7 +8,7 @@ const TREES: [number, number, number][] = [
 ]
 
 /** Illustrated landscape, drawn at 1280×800 and cropped to fill its box. */
-export default function Scene({ p, idSuffix = 'main' }: { p: ScenePalette; idSuffix?: string }): JSX.Element {
+function Scene({ p, idSuffix = 'main' }: { p: ScenePalette; idSuffix?: string }): JSX.Element {
   const gid = `sky-${idSuffix}`
   return (
     <svg
@@ -40,3 +41,5 @@ export default function Scene({ p, idSuffix = 'main' }: { p: ScenePalette; idSuf
     </svg>
   )
 }
+
+export default memo(Scene)

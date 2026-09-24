@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import InfoTip from '../ui/InfoTip'
+import { BoostExplainer, DEFAULT_BLOCKLIST } from './Uebersicht'
 
 interface GameEntry {
   appId: string
@@ -7,7 +9,6 @@ interface GameEntry {
 }
 
 const BLOCKLIST_KEY = 'znerol.boost.blocklist'
-const DEFAULT_BLOCKLIST = ['OneDrive', 'Spotify', 'Discord', 'Teams', 'Skype']
 
 export default function Spiele(): JSX.Element {
   const [games, setGames] = useState<GameEntry[]>([])
@@ -70,9 +71,11 @@ export default function Spiele(): JSX.Element {
           <div className="page-title">Spiele</div>
           <div className="page-subtitle">Installierte Steam-Spiele & Gaming-Boost-Modus</div>
         </div>
-        <button className={`btn ${boostOn ? 'btn-danger' : 'btn-primary'}`} onClick={toggleBoost} disabled={busy}>
-          {boostOn ? '■ Boost beenden' : '⚡ Boost-Modus starten'}
-        </button>
+        <InfoTip text={<BoostExplainer />}>
+          <button className={`btn ${boostOn ? 'btn-danger' : 'btn-primary'}`} onClick={toggleBoost} disabled={busy}>
+            {boostOn ? 'Boost beenden' : 'Boost starten'}
+          </button>
+        </InfoTip>
       </div>
 
       {error && <div className="win-only-banner">⚠ {error}</div>}

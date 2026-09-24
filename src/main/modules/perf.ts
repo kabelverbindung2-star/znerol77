@@ -15,23 +15,37 @@ export interface PerfSample {
 let lastNet: { rx: number; tx: number; ts: number } | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 
-// GPU, disk, temperature and OS queries are expensive on Windows (WMI / nvidia-smi),
-// so they refresh every few ticks instead of every sample.
+// On Windows most systeminformation calls run a PowerShell/WMI query. Without a
+// persistent PowerShell every query spawns a new powershell.exe, which is what made
+// the whole PC lag and the fans spin up. One long-lived session fixes that.
+export function startSystemQueries(): void {
+  if (process.platform === 'win32') si.powerShellStart()
+}
+
+export function stopSystemQueries(): void {
+  if (process.platform === 'win32') si.powerShellRelease()
+}
+
+// Expensive, slowly changing values refresh on their own cadence (in ticks).
 let tick = 0
-let slow: { temp: any; fsSize: any[]; graphics: any; osInfo: any } | null = null
+let gpuTemp: { temp: any; graphics: any } | null = null
+let rare: { fsSize: any[]; osInfo: any } | null = null
 
 async function sample(): Promise<PerfSample> {
-  if (!slow || tick % 5 === 0) {
-    const [temp, fsSize, graphics, osInfo] = await Promise.all([
+  if (!gpuTemp || tick % 5 === 0) {
+    const [temp, graphics] = await Promise.all([
       si.cpuTemperature().catch(() => ({ main: null }) as any),
-      si.fsSize().catch(() => [] as any[]),
-      si.graphics().catch(() => ({ controllers: [] }) as any),
-      si.osInfo()
+      si.graphics().catch(() => ({ controllers: [] }) as any)
     ])
-    slow = { temp, fsSize, graphics, osInfo }
+    gpuTemp = { temp, graphics }
+  }
+  if (!rare || tick % 30 === 0) {
+    const [fsSize, osInfo] = await Promise.all([si.fsSize().catch(() => [] as any[]), si.osInfo()])
+    rare = { fsSize, osInfo }
   }
   tick += 1
-  const { temp, fsSize, graphics, osInfo } = slow
+  const { temp, graphics } = gpuTemp
+  const { fsSize, osInfo } = rare
   const [cpuLoad, mem, cpuSpeed, netStats, time] = await Promise.all([
     si.currentLoad(),
     si.mem(),
@@ -94,10 +108,11 @@ async function sample(): Promise<PerfSample> {
 
 let busy = false
 
-export function startPerfLoop(getWindows: () => BrowserWindow[], intervalMs = 1500): void {
+export function startPerfLoop(getWindows: () => BrowserWindow[], intervalMs = 2000): void {
   if (timer) return
   timer = setInterval(async () => {
-    const targets = getWindows().filter((w) => !w.isDestroyed() && w.isVisible())
+    // nobody looking (minimised / hidden / overlay off) -> measure nothing at all
+    const targets = getWindows().filter((w) => !w.isDestroyed() && w.isVisible() && !w.isMinimized())
     if (targets.length === 0 || busy) return
     busy = true
     try {

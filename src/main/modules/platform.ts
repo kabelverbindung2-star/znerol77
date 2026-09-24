@@ -1,20 +1,6 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { spawn } from 'child_process'
 
 export const isWindows = process.platform === 'win32'
-
-/**
- * Spawns a persistent, interactive PowerShell process. Commands written to
- * its stdin are executed in one continuous runspace, so state (like a
- * `Add-Type` P/Invoke definition) survives between calls. This avoids the
- * need for native Node addons (robotjs, edge-js, ...) which are notoriously
- * fragile to rebuild against Electron's ABI.
- */
-export function spawnPersistentPowerShell(): ChildProcessWithoutNullStreams | null {
-  if (!isWindows) return null
-  return spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '-'], {
-    windowsHide: true
-  })
-}
 
 /** Runs a one-off PowerShell command and resolves with stdout. */
 export function runPowerShell(script: string, timeoutMs = 8000): Promise<string> {

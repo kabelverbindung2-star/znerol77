@@ -2,14 +2,18 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Settings } from './types'
 
 export const DEFAULT_SETTINGS: Settings = {
-  wallpaper: { auto: true, intervalMin: 10, order: 'random', blur: 24, dim: 16, currentId: null },
-  overlay: { enabled: true },
+  wallpaper: { auto: true, intervalMin: 10, order: 'random', glass: true, blur: 16, dim: 16, currentId: null },
+  overlay: { enabled: false },
+  audio: { switchHotkey: 'F6' },
+  weather: null,
   accent: '#C6F432'
 }
 
 export interface SettingsPatch {
   wallpaper?: Partial<Settings['wallpaper']>
   overlay?: Partial<Settings['overlay']>
+  audio?: Partial<Settings['audio']>
+  weather?: Settings['weather']
   accent?: string
 }
 
@@ -29,6 +33,8 @@ export function useSettings(): { settings: Settings; update: (patch: SettingsPat
     setSettings((s) => ({
       wallpaper: { ...s.wallpaper, ...(patch.wallpaper ?? {}) },
       overlay: { ...s.overlay, ...(patch.overlay ?? {}) },
+      audio: { ...s.audio, ...(patch.audio ?? {}) },
+      weather: patch.weather !== undefined ? patch.weather : s.weather,
       accent: patch.accent ?? s.accent
     }))
     await window.znerol.settings.update(patch)

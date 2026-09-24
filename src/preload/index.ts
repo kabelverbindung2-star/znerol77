@@ -43,7 +43,21 @@ const api = {
   audio: {
     get: () => ipcRenderer.invoke('audio:get'),
     setVolume: (percent: number) => ipcRenderer.invoke('audio:setVolume', percent),
-    setMuted: (muted: boolean) => ipcRenderer.invoke('audio:setMuted', muted)
+    setMuted: (muted: boolean) => ipcRenderer.invoke('audio:setMuted', muted),
+    setDefault: (id: string) => ipcRenderer.invoke('audio:setDefault', id),
+    cycle: () => ipcRenderer.invoke('audio:cycle'),
+    sessions: () => ipcRenderer.invoke('audio:sessions'),
+    sessionMute: (pid: number, muted: boolean) => ipcRenderer.invoke('audio:sessionMute', pid, muted),
+    sessionVolume: (pid: number, percent: number) => ipcRenderer.invoke('audio:sessionVolume', pid, percent),
+    media: () => ipcRenderer.invoke('audio:media'),
+    mediaControl: (action: 'next' | 'prev' | 'toggle') => ipcRenderer.invoke('audio:mediaControl', action),
+    setHotkey: (accelerator: string): Promise<boolean> => ipcRenderer.invoke('audio:setHotkey', accelerator),
+    hotkeyState: (): Promise<string | null> => ipcRenderer.invoke('audio:hotkeyState'),
+    onChanged: (cb: () => void) => subscribe('audio:changed', cb)
+  },
+  weather: {
+    search: (query: string) => ipcRenderer.invoke('weather:search', query),
+    get: (lat: number, lon: number) => ipcRenderer.invoke('weather:get', lat, lon)
   },
   games: {
     list: () => ipcRenderer.invoke('games:list'),
@@ -69,7 +83,9 @@ const api = {
     setEnabled: (enabled: boolean) => ipcRenderer.invoke('overlay:setEnabled', enabled),
     closeMenu: () => ipcRenderer.invoke('overlay:closeMenu'),
     navigate: (tab: string) => ipcRenderer.invoke('overlay:navigate', tab),
-    onMenu: (cb: (open: boolean) => void) => subscribe('overlay:menu', cb)
+    onMenu: (cb: (open: boolean) => void) => subscribe('overlay:menu', cb),
+    onPinned: (cb: (pinned: boolean) => void) => subscribe('overlay:pinned', cb),
+    onToast: (cb: (toast: { title: string; sub?: string }) => void) => subscribe('overlay:toast', cb)
   },
   update: {
     state: () => ipcRenderer.invoke('update:state'),

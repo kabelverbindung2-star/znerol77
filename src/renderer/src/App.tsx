@@ -61,7 +61,7 @@ export default function App(): JSX.Element {
   }
 
   return (
-    <div className={`app ${panelOpen ? 'with-panel' : ''}`} style={style}>
+    <div className={`app ${panelOpen ? 'with-panel' : ''} ${settings.wallpaper.glass ? '' : 'no-glass'}`} style={style}>
       <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />
 
       <header className="titlebar">

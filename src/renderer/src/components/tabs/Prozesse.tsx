@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { usePoll } from '../../lib/usePoll'
 import { formatMB } from '../../lib/format'
 
 interface ProcInfo {
@@ -29,11 +30,7 @@ export default function Prozesse(): JSX.Element {
     }
   }
 
-  useEffect(() => {
-    refresh()
-    const id = setInterval(refresh, 2500)
-    return () => clearInterval(id)
-  }, [])
+  usePoll(refresh, 5000)
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase()

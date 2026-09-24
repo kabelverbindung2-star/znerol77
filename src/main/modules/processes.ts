@@ -15,7 +15,22 @@ export interface ProcInfo {
   priority: number
 }
 
-export async function listProcesses(): Promise<ProcInfo[]> {
+// Listing processes is one of the most expensive queries on Windows, so concurrent or
+// rapid callers (overview + process tab) share one result for a few seconds.
+let cached: { at: number; list: Promise<ProcInfo[]> } | null = null
+const CACHE_MS = 4000
+
+export function listProcesses(): Promise<ProcInfo[]> {
+  if (cached && Date.now() - cached.at < CACHE_MS) return cached.list
+  const list = queryProcesses()
+  cached = { at: Date.now(), list }
+  list.catch(() => {
+    cached = null
+  })
+  return list
+}
+
+async function queryProcesses(): Promise<ProcInfo[]> {
   const data = await si.processes()
   return data.list
     .map((p) => ({
@@ -31,6 +46,7 @@ export async function listProcesses(): Promise<ProcInfo[]> {
 }
 
 export async function killProcess(pid: number): Promise<void> {
+  cached = null
   if (isWindows) {
     await execAsync(`taskkill /PID ${pid} /F`)
   } else {

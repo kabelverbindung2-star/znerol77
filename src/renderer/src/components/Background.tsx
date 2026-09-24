@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import Scene from './ui/Scene'
 import { paletteFor } from '../lib/palettes'
 import type { Wallpaper } from '../lib/types'
@@ -9,7 +9,7 @@ function Layer({ wp }: { wp: Wallpaper }): JSX.Element {
 }
 
 /** Full-window wallpaper that cross-fades when the current image changes. */
-export default function Background({ wallpaper, dim }: { wallpaper: Wallpaper; dim: number }): JSX.Element {
+function Background({ wallpaper, dim }: { wallpaper: Wallpaper; dim: number }): JSX.Element {
   const [layers, setLayers] = useState<Wallpaper[]>([wallpaper])
 
   useEffect(() => {
@@ -29,3 +29,6 @@ export default function Background({ wallpaper, dim }: { wallpaper: Wallpaper; d
     </div>
   )
 }
+
+// re-rendering the full-screen picture on every perf tick is wasted work
+export default memo(Background)

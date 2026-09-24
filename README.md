@@ -5,11 +5,11 @@ Systemmonitor und Gaming-Werkzeugkasten für Windows, mit Glas-Oberfläche über
 ## Was drin ist
 
 **App-Fenster**
-- **Übersicht**: Uhrzeit, CPU/GPU/RAM/Temperatur mit Verlauf, größte Verbraucher, Netzwerk, Laufwerke, Schnellzugriff (Overlay, Boost, Autoclicker, mit Windows starten).
+- **Übersicht**: Uhrzeit, Wetter-Symbol (drüberfahren zeigt Temperatur; Ort einmal einstellen, Daten von Open-Meteo), CPU/GPU/RAM/Temperatur mit Verlauf, größte Verbraucher, Netzwerk, Laufwerke, Schnellzugriff (Overlay, Boost, Autoclicker, mit Windows starten).
 - **Prozesse**: sortier- und filterbare Liste, beenden, Priorität ändern.
 - **Autostart**: Registry-`Run`-Einträge und Startup-Ordner verwalten.
-- **Klicker**: Profile, Intervall + Zufalls-Delay, Maustaste, Einzel/Doppel, feste oder aktuelle Position, globaler Hotkey.
-- **Audio**: Master-Lautstärke, Stummschaltung, Geräteliste.
+- **Klicker** (Starttaste standardmäßig `F8`): Profile, Intervall + Zufalls-Delay, Maustaste, Einzel/Doppel, feste oder aktuelle Position, globaler Hotkey.
+- **Audio**: läuft gerade (Spotify & andere Player: Titel, Cover, Pause, Vor/Zurück), welche App gerade Ton macht (Pegel, Lautstärke, stumm pro App), Gesamtlautstärke, Ausgabegerät wählen. `F6` wechselt das Ausgabegerät (Taste änderbar) und zeigt kurz an, welches jetzt aktiv ist.
 - **Spiele**: installierte Steam-Spiele, Schnellstart, Boost-Modus.
 
 **Hintergründe** (Bild-Knopf oben rechts)
@@ -35,7 +35,15 @@ npm run dist:win   # Windows-Installer nach release/
 
 - Autostart, Klicker, Audio und Boost benötigen Windows (PowerShell-Helfer, keine nativen Node-Addons).
 - CPU-Temperatur liefert Windows oft nur mit Administratorrechten; ohne steht dort „–“.
-- FPS-Anzeige und Lautstärke pro App sind nicht eingebaut – beides bräuchte tiefe Eingriffe (Grafik-Hooks bzw. native Audio-Sitzungs-API).
+- Eine FPS-Anzeige ist nicht eingebaut (bräuchte Grafik-Hooks ins Spiel).
+- Die Fn-Taste kann keine App abfangen – sie wird von der Tastatur selbst ausgewertet.
+
+## Leistung
+
+- Alle Windows-Abfragen laufen über **eine** dauerhafte PowerShell-Sitzung (systeminformation) bzw. einen dauerhaften Helfer (`src/main/modules/helper-script.ts`: C# für Core Audio, Mausklicks, Mediensteuerung) statt ständig neue Prozesse zu starten.
+- Gemessen wird nur, solange ein Fenster sichtbar und nicht minimiert ist.
+- Das Overlay-Fenster wird erst erzeugt, wenn es gebraucht wird; der Glas-Effekt ist abschaltbar.
+- Der Release-Build startet den Helfer auf einem echten Windows-Rechner (`scripts/test-helper.mjs`), bevor ein Update veröffentlicht wird.
 
 ## Aufbau
 

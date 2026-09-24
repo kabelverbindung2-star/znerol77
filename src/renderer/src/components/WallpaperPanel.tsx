@@ -130,12 +130,22 @@ export default function WallpaperPanel(props: Props): JSX.Element {
         </label>
       </div>
 
-      <label className="wp-slider">
-        <span>
-          Unschärfe der Karten <b>{wp.blur}</b>
-        </span>
-        <input type="range" min={0} max={40} value={wp.blur} onChange={(e) => update({ wallpaper: { blur: Number(e.target.value) } })} />
-      </label>
+      <div className="wp-row">
+        <div>
+          <div>Glas-Effekt</div>
+          <div className="wp-sub">Aus = schneller, weniger Last für die Grafikkarte</div>
+        </div>
+        <Switch on={wp.glass} onToggle={(v) => update({ wallpaper: { glass: v } })} />
+      </div>
+
+      {wp.glass && (
+        <label className="wp-slider">
+          <span>
+            Unschärfe der Karten <b>{wp.blur}</b>
+          </span>
+          <input type="range" min={4} max={32} value={wp.blur} onChange={(e) => update({ wallpaper: { blur: Number(e.target.value) } })} />
+        </label>
+      )}
       <label className="wp-slider">
         <span>
           Bild abdunkeln <b>{wp.dim} %</b>
