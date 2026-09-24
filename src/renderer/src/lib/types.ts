@@ -9,15 +9,36 @@ export interface PerfSample {
   os: { platform: string; distro: string; hostname: string; arch: string }
 }
 
+export interface WallpaperInfo {
+  title: string
+  artist: string
+  license: string
+  licenseUrl: string
+  descriptionUrl: string
+  date: string
+}
+
 export interface Wallpaper {
   id: string
   source: 'builtin' | 'commons' | 'custom'
   name: string
   url: string
   credit?: string
+  info?: WallpaperInfo
+}
+
+export interface WidgetConfig {
+  id: string
+  type: string
+  size: 's' | 'm' | 'l'
 }
 
 export interface Settings {
+  appearance: {
+    style: 'glass' | 'basic'
+    mode: 'dark' | 'light'
+    background: 'photos' | 'fixed' | 'plain' | 'transparent'
+  }
   wallpaper: {
     auto: boolean
     intervalMin: number
@@ -30,6 +51,8 @@ export interface Settings {
   overlay: { enabled: boolean }
   audio: { switchHotkey: string }
   weather: { name: string; lat: number; lon: number } | null
+  dashboard: { widgets: WidgetConfig[] }
+  performance: { intervalSec: number }
   accent: string
 }
 

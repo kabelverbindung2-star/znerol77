@@ -2,7 +2,7 @@
 // the userData folder and started once; Node talks to it with one JSON object per line.
 // Keep this file pure ASCII: Windows PowerShell 5.1 reads BOM-less scripts as ANSI.
 
-const CSHARP = String.raw`
+export const CSHARP = String.raw`
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -349,17 +349,106 @@ namespace Znerol {
       keybd_event(vk, 0, 2, UIntPtr.Zero);
     }
   }
+
+  // Autoclicker loop on its own thread: 1 ms timer resolution + SendInput, so up to
+  // ~500 clicks per second are possible without Node/IPC in the hot path.
+  public static class Clicker {
+    [StructLayout(LayoutKind.Sequential)]
+    struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct INPUT { public uint type; public MOUSEINPUT mi; }
+
+    [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint count, INPUT[] inputs, int size);
+    [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+    [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint period);
+    [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint period);
+
+    static Thread worker;
+    static volatile bool running;
+    static long clicks;
+
+    static INPUT Mouse(uint flags) {
+      var i = new INPUT();
+      i.type = 0; // INPUT_MOUSE
+      i.mi.dwFlags = flags;
+      return i;
+    }
+
+    public static void Start(string button, bool dbl, bool move, int x, int y, double intervalMs, double jitterMs, long limit) {
+      Stop();
+      uint down = 0x0002, up = 0x0004;
+      if (button == "right") { down = 0x0008; up = 0x0010; }
+      else if (button == "middle") { down = 0x0020; up = 0x0040; }
+      var list = new List<INPUT>();
+      int times = dbl ? 2 : 1;
+      for (int k = 0; k < times; k++) { list.Add(Mouse(down)); list.Add(Mouse(up)); }
+      INPUT[] batch = list.ToArray();
+      int size = Marshal.SizeOf(typeof(INPUT));
+      double interval = Math.Max(2.0, intervalMs);
+      running = true;
+      Interlocked.Exchange(ref clicks, 0);
+      worker = new Thread(() => {
+        timeBeginPeriod(1);
+        try {
+          var sw = Stopwatch.StartNew();
+          var rnd = new Random();
+          double next = 0;
+          while (running) {
+            if (move) SetCursorPos(x, y);
+            SendInput((uint)batch.Length, batch, size);
+            long c = Interlocked.Increment(ref clicks);
+            if (limit > 0 && c >= limit) { running = false; break; }
+            next += interval + (jitterMs > 0 ? rnd.NextDouble() * jitterMs : 0);
+            double now = sw.Elapsed.TotalMilliseconds;
+            if (now - next > 100) next = now; // after a stall, do not try to catch up
+            while (running) {
+              double rest = next - sw.Elapsed.TotalMilliseconds;
+              if (rest <= 0) break;
+              if (rest > 2.0) Thread.Sleep(1); else Thread.SpinWait(40);
+            }
+          }
+        } finally {
+          timeEndPeriod(1);
+        }
+      });
+      worker.IsBackground = true;
+      worker.Priority = ThreadPriority.AboveNormal;
+      worker.Start();
+    }
+
+    public static void Stop() {
+      running = false;
+      var w = worker;
+      worker = null;
+      if (w != null) w.Join(300);
+    }
+
+    public static string Status() {
+      return "{\"running\":" + (running ? "true" : "false") + ",\"clicks\":" + Interlocked.Read(ref clicks) + "}";
+    }
+  }
 }
 `
 
 export const HELPER_SCRIPT = String.raw`
+param([string]$CacheDll = '')
 $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = New-Object System.Text.UTF8Encoding $false
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
 
-Add-Type -TypeDefinition @'
+$cs = @'
 ${CSHARP}
 '@
+
+# Compiling the C# takes 10-20 s on first use, so the result is kept as a DLL next to
+# the script (the file name contains a hash of the source, so updates recompile).
+function Test-Loaded { return [bool]('Znerol.Win' -as [type]) }
+if ($CacheDll -and (Test-Path $CacheDll)) { try { Add-Type -Path $CacheDll } catch { } }
+if (-not (Test-Loaded) -and $CacheDll) {
+  try { Add-Type -TypeDefinition $cs -OutputAssembly $CacheDll -OutputType Library } catch { }
+  if (-not (Test-Loaded) -and (Test-Path $CacheDll)) { try { Add-Type -Path $CacheDll } catch { } }
+}
+if (-not (Test-Loaded)) { Add-Type -TypeDefinition $cs }
 
 $script:mgr = $null
 $script:asTask = $null
@@ -464,6 +553,9 @@ while ($true) {
       'media' { $data = Media-Info }
       'mediaControl' { $data = Media-Control ([string]$req.arg) }
       'click' { [Znerol.Win]::Click([string]$req.button, [bool]$req.move, [int]$req.x, [int]$req.y, [bool]$req.double) }
+      'clickStart' { [Znerol.Clicker]::Start([string]$req.button, [bool]$req.double, [bool]$req.move, [int]$req.x, [int]$req.y, [double]$req.interval, [double]$req.jitter, [long]$req.limit) }
+      'clickStop' { [Znerol.Clicker]::Stop() }
+      'clickStatus' { $data = [Znerol.Clicker]::Status() }
       default { throw ('unknown command ' + $req.cmd) }
     }
     $out = '{"id":' + $id + ',"ok":true,"data":' + $data + '}'

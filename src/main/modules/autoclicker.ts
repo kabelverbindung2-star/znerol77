@@ -3,7 +3,7 @@ import { winHelper } from './winhelper'
 export interface AutoClickerProfile {
   id: string
   name: string
-  intervalMs: number
+  intervalMs: number // 2 ms = 500 clicks per second
   jitterMs: number
   button: 'left' | 'right' | 'middle'
   mode: 'single' | 'double'
@@ -21,66 +21,81 @@ export interface AutoClickerStatus {
   error: string | null
 }
 
+export const MIN_INTERVAL_MS = 2
+
+/**
+ * The clicking itself runs on a thread inside the Windows helper (C#, 1 ms timer,
+ * SendInput); Node only starts/stops it and polls the counter a few times a second.
+ */
 class ClickerEngine {
-  private timer: ReturnType<typeof setTimeout> | null = null
+  private poll: ReturnType<typeof setInterval> | null = null
   private status: AutoClickerStatus = { running: false, clicks: 0, profileId: null, error: null }
   private onStatus: (s: AutoClickerStatus) => void = () => {}
-  private lastEmit = 0
+  private onRunning: (running: boolean) => void = () => {}
 
   setStatusListener(cb: (s: AutoClickerStatus) => void): void {
     this.onStatus = cb
   }
 
-  private emit(force = false): void {
-    // at 50 clicks/s, repainting every window on every click would itself cause lag
-    const now = Date.now()
-    if (!force && now - this.lastEmit < 250) return
-    this.lastEmit = now
+  /** Lets main register an emergency-stop key only while clicking. */
+  setRunningListener(cb: (running: boolean) => void): void {
+    this.onRunning = cb
+  }
+
+  private emit(): void {
     this.onStatus({ ...this.status })
   }
 
   async start(profile: AutoClickerProfile): Promise<void> {
     if (this.status.running) return
     try {
-      await winHelper.request('ping', {}, 30000)
-    } catch (err) {
-      this.status = { running: false, clicks: 0, profileId: null, error: (err as Error).message }
-      this.emit(true)
-      throw err
-    }
-    this.status = { running: true, clicks: 0, profileId: profile.id, error: null }
-    this.emit(true)
-
-    const tick = (): void => {
-      if (!this.status.running) return
-      winHelper
-        .send('click', {
+      await winHelper.request(
+        'clickStart',
+        {
           button: profile.button,
+          double: profile.mode === 'double',
           move: profile.target === 'fixed',
           x: profile.x,
           y: profile.y,
-          double: profile.mode === 'double'
-        })
-        .catch(() => this.stop())
-      this.status.clicks += 1
+          interval: Math.max(MIN_INTERVAL_MS, profile.intervalMs),
+          jitter: Math.max(0, profile.jitterMs),
+          limit: Math.max(0, profile.clickLimit)
+        },
+        30000
+      )
+    } catch (err) {
+      this.status = { running: false, clicks: 0, profileId: null, error: (err as Error).message }
       this.emit()
-      if (profile.clickLimit > 0 && this.status.clicks >= profile.clickLimit) {
-        this.stop()
-        return
-      }
-      const jitter = profile.jitterMs > 0 ? Math.floor(Math.random() * profile.jitterMs) : 0
-      this.timer = setTimeout(tick, Math.max(5, profile.intervalMs + jitter))
+      throw err
     }
-    tick()
+    this.status = { running: true, clicks: 0, profileId: profile.id, error: null }
+    this.emit()
+    this.onRunning(true)
+    this.poll = setInterval(async () => {
+      try {
+        const s = await winHelper.request<{ running: boolean; clicks: number }>('clickStatus')
+        this.status = { ...this.status, clicks: s.clicks, running: s.running }
+        this.emit()
+        if (!s.running) this.finish() // click limit reached
+      } catch {
+        this.finish()
+      }
+    }, 250)
+  }
+
+  private finish(): void {
+    if (this.poll) {
+      clearInterval(this.poll)
+      this.poll = null
+    }
+    this.status = { ...this.status, running: false }
+    this.emit()
+    this.onRunning(false)
   }
 
   stop(): void {
-    if (this.timer) {
-      clearTimeout(this.timer)
-      this.timer = null
-    }
-    this.status = { ...this.status, running: false }
-    this.emit(true)
+    winHelper.request('clickStop').catch(() => undefined)
+    this.finish()
   }
 
   getStatus(): AutoClickerStatus {
@@ -88,7 +103,7 @@ class ClickerEngine {
   }
 
   dispose(): void {
-    this.stop()
+    if (this.status.running) this.stop()
   }
 }
 

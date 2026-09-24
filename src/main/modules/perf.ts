@@ -126,6 +126,11 @@ export function startPerfLoop(getWindows: () => BrowserWindow[], intervalMs = 20
   }, intervalMs)
 }
 
+export function restartPerfLoop(getWindows: () => BrowserWindow[], intervalMs: number): void {
+  stopPerfLoop()
+  startPerfLoop(getWindows, Math.max(1000, Math.min(10000, intervalMs)))
+}
+
 export function stopPerfLoop(): void {
   if (timer) {
     clearInterval(timer)

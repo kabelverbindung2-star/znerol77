@@ -5,7 +5,8 @@ const FALLBACK: Wallpaper = { id: 'builtin:Bergsee', source: 'builtin', name: 'B
 
 export function useWallpapers(
   settings: Settings,
-  update: (patch: { wallpaper: Partial<Settings['wallpaper']> }) => Promise<void>
+  update: (patch: { wallpaper: Partial<Settings['wallpaper']> }) => Promise<void>,
+  rotate = true
 ): {
   all: Wallpaper[]
   current: Wallpaper
@@ -55,7 +56,8 @@ export function useWallpapers(
     select(pick.id)
   }, [all, current.id, select])
 
-  const { auto, intervalMin } = settings.wallpaper
+  const { intervalMin } = settings.wallpaper
+  const auto = settings.wallpaper.auto && rotate
   useEffect(() => {
     if (!auto) return
     const t = setInterval(() => {

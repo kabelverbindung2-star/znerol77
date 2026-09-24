@@ -1,8 +1,9 @@
 import { app } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { createHash } from 'crypto'
 import { promises as fs } from 'fs'
 import path from 'path'
-import { HELPER_SCRIPT } from './helper-script'
+import { HELPER_SCRIPT, CSHARP } from './helper-script'
 import { isWindows } from './platform'
 
 interface Pending {
@@ -25,11 +26,18 @@ class WinHelper {
 
   private async start(): Promise<void> {
     if (!isWindows) throw new Error('Nur unter Windows verfügbar')
-    const file = path.join(app.getPath('userData'), 'znerol-helper.ps1')
+    const dir = app.getPath('userData')
+    const file = path.join(dir, 'znerol-helper.ps1')
+    const hash = createHash('sha1').update(CSHARP).digest('hex').slice(0, 10)
+    const dll = path.join(dir, `znerol-helper-${hash}.dll`)
     await fs.writeFile(file, HELPER_SCRIPT, 'utf-8')
+    // remove DLLs of older versions (a locked one is simply left for next time)
+    for (const f of await fs.readdir(dir).catch(() => [] as string[])) {
+      if (/^znerol-helper-[0-9a-f]+\.dll$/.test(f) && !f.includes(hash)) await fs.unlink(path.join(dir, f)).catch(() => undefined)
+    }
     const proc = spawn(
       'powershell.exe',
-      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file],
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file, '-CacheDll', dll],
       { windowsHide: true }
     )
     this.proc = proc

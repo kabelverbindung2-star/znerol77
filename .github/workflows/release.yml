@@ -31,14 +31,14 @@ jobs:
       - name: Abhängigkeiten installieren
         run: npm ci
 
-      - name: Versionsnummer setzen (2.0.<Lauf>)
+      - name: Versionsnummer setzen (2.1.<Lauf>)
         shell: bash
-        run: npm version "2.0.${{ github.run_number }}" --no-git-tag-version
+        run: npm version "2.1.${{ github.run_number }}" --no-git-tag-version
 
       - name: Typen prüfen
         run: npm run typecheck
 
-      - name: Windows-Helfer testen (PowerShell + C#)
+      - name: Windows-Teile testen (Helfer, Klicker, Autostart)
         run: node scripts/test-helper.mjs
 
       - name: App bauen

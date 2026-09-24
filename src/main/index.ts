@@ -1,15 +1,18 @@
-import { app, shell, BrowserWindow, ipcMain, globalShortcut } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, globalShortcut, dialog } from 'electron'
 import { join } from 'path'
 import { is } from './modules/env'
-import { startPerfLoop, stopPerfLoop, startSystemQueries, stopSystemQueries } from './modules/perf'
+import { startPerfLoop, stopPerfLoop, restartPerfLoop, startSystemQueries, stopSystemQueries } from './modules/perf'
 import { listProcesses, killProcess, setProcessPriority } from './modules/processes'
 import {
   listAutostart,
   addAutostartEntry,
   removeAutostartEntry,
   toggleAutostartEntry,
+  revealAutostart,
+  autostartIcons,
   type AutostartEntry
 } from './modules/autostart'
+import { listSketches, getSketch, saveSketch, deleteSketch, type Sketch } from './modules/sketches'
 import { clickerEngine, defaultProfiles, type AutoClickerProfile } from './modules/autoclicker'
 import {
   getAudioState,
@@ -27,7 +30,7 @@ import { searchPlaces, getWeather } from './modules/weather'
 import { winHelper } from './modules/winhelper'
 import { listGames, enableGameBoost, disableGameBoost, launchGame } from './modules/games'
 import { isWindows } from './modules/platform'
-import { getSettings, updateSettings } from './modules/settings'
+import { getSettings, updateSettings, type Settings } from './modules/settings'
 import {
   registerWallpaperScheme,
   handleWallpaperProtocol,
@@ -46,7 +49,7 @@ import {
   isMenuOpen,
   showToast
 } from './modules/overlay'
-import { startAutoUpdates, getUpdateState, installUpdateNow } from './modules/updater'
+import { startAutoUpdates, getUpdateState, installUpdateNow, checkForUpdatesNow } from './modules/updater'
 
 const PRELOAD = join(__dirname, '../preload/index.mjs')
 const MENU_HOTKEY = 'Alt+Q'
@@ -99,6 +102,18 @@ function createMainWindow(): void {
     getOverlayWindow()?.close()
   })
   loadPage(mainWindow, 'index')
+}
+
+/** "Transparent" background = Windows 11 acrylic material behind the page. */
+function applyAppearance(settings: Settings): void {
+  if (!mainWindow || process.platform !== 'win32') return
+  const transparent = settings.appearance.background === 'transparent' && settings.appearance.style === 'glass'
+  try {
+    mainWindow.setBackgroundMaterial(transparent ? 'acrylic' : 'none')
+    mainWindow.setBackgroundColor(transparent ? '#00000000' : '#0A0B09')
+  } catch {
+    // Windows 10 / older Electron: stays opaque, the page shows its own background
+  }
 }
 
 function overlay(): Promise<BrowserWindow> {
@@ -179,6 +194,28 @@ function wireIpc(): void {
   ipcMain.handle('autostart:toggle', (_e, entry: AutostartEntry, enable: boolean) =>
     toggleAutostartEntry(entry, enable)
   )
+  ipcMain.handle('autostart:reveal', (_e, entry: AutostartEntry) => revealAutostart(entry))
+  ipcMain.handle('autostart:icons', (_e, paths: string[]) => autostartIcons(paths))
+  ipcMain.handle('autostart:pickFile', async () => {
+    const r = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Programm für den Autostart wählen',
+      properties: ['openFile'],
+      filters: [{ name: 'Programme', extensions: ['exe', 'bat', 'cmd', 'lnk'] }]
+    })
+    return r.canceled ? null : r.filePaths[0]
+  })
+
+  ipcMain.handle('sketches:list', () => listSketches())
+  ipcMain.handle('sketches:get', (_e, id: string) => getSketch(id))
+  ipcMain.handle('sketches:save', (_e, sketch: Sketch) => saveSketch(sketch))
+  ipcMain.handle('sketches:delete', (_e, id: string) => deleteSketch(id))
+
+  ipcMain.handle('app:version', () => app.getVersion())
+  ipcMain.handle('app:openExternal', (_e, url: string) => {
+    if (/^https:\/\//.test(url)) return shell.openExternal(url)
+  })
+  ipcMain.handle('app:openDataFolder', () => shell.openPath(app.getPath('userData')))
+  ipcMain.handle('update:check', () => checkForUpdatesNow())
   ipcMain.handle('app:getLoginItem', () => app.getLoginItemSettings().openAtLogin)
   ipcMain.handle('app:setLoginItem', (_e, enabled: boolean) => {
     app.setLoginItemSettings({ openAtLogin: enabled })
@@ -186,6 +223,14 @@ function wireIpc(): void {
   })
 
   clickerEngine.setStatusListener((status) => broadcast('autoclicker:status', status))
+  // Esc stops a running autoclicker (only registered while it runs, so Esc works normally otherwise)
+  clickerEngine.setRunningListener((running) => {
+    if (running) {
+      if (!globalShortcut.isRegistered('Escape')) globalShortcut.register('Escape', () => clickerEngine.stop())
+    } else if (globalShortcut.isRegistered('Escape')) {
+      globalShortcut.unregister('Escape')
+    }
+  })
   ipcMain.handle('autoclicker:defaultProfiles', () => defaultProfiles)
   ipcMain.handle('autoclicker:start', (_e, profile: AutoClickerProfile) =>
     clickerEngine.start(profile)
@@ -245,7 +290,11 @@ function wireIpc(): void {
 
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:update', async (_e, patch) => {
+    const before = await getSettings()
+    const oldInterval = before.performance.intervalSec
     const next = await updateSettings(patch)
+    if (patch.appearance) applyAppearance(next)
+    if (next.performance.intervalSec !== oldInterval) restartPerfLoop(allWindows, next.performance.intervalSec * 1000)
     broadcast('settings:changed')
     return next
   })
@@ -273,10 +322,11 @@ app.whenReady().then(async () => {
   startSystemQueries()
   createMainWindow()
   const settings = await getSettings()
+  applyAppearance(settings)
   if (settings.overlay.enabled) setOverlayEnabled(true).catch(() => undefined)
   registerOverlayHotkeys()
   registerAudioHotkey(settings.audio.switchHotkey)
-  startPerfLoop(allWindows)
+  startPerfLoop(allWindows, settings.performance.intervalSec * 1000)
   syncCommonsWallpapers().catch(() => undefined)
   startAutoUpdates((s) => broadcast('update:changed', s))
 

@@ -4,24 +4,27 @@ Systemmonitor und Gaming-Werkzeugkasten für Windows, mit Glas-Oberfläche über
 
 ## Was drin ist
 
-**App-Fenster**
-- **Übersicht**: Uhrzeit, Wetter-Symbol (drüberfahren zeigt Temperatur; Ort einmal einstellen, Daten von Open-Meteo), CPU/GPU/RAM/Temperatur mit Verlauf, größte Verbraucher, Netzwerk, Laufwerke, Schnellzugriff (Overlay, Boost, Autoclicker, mit Windows starten).
-- **Prozesse**: sortier- und filterbare Liste, beenden, Priorität ändern.
-- **Autostart**: Registry-`Run`-Einträge und Startup-Ordner verwalten.
-- **Klicker** (Starttaste standardmäßig `F8`): Profile, Intervall + Zufalls-Delay, Maustaste, Einzel/Doppel, feste oder aktuelle Position, globaler Hotkey.
-- **Audio**: läuft gerade (Spotify & andere Player: Titel, Cover, Pause, Vor/Zurück), welche App gerade Ton macht (Pegel, Lautstärke, stumm pro App), Gesamtlautstärke, Ausgabegerät wählen. `F6` wechselt das Ausgabegerät (Taste änderbar) und zeigt kurz an, welches jetzt aktiv ist.
-- **Spiele**: installierte Steam-Spiele, Schnellstart, Boost-Modus.
+**Seitenleiste**: Übersicht, Prozesse, Autostart, Klicker, Audio, Spiele, Zeichnen, Werkzeuge, Einstellungen.
 
-**Hintergründe** (Bild-Knopf oben rechts)
-- Beim ersten Start lädt die App bis zu 50 freie Landschaftsfotos von Wikimedia Commons (Kategorie „Featured pictures of landscapes“) und speichert sie lokal. Name und Fotograf stehen unten links.
-- Automatischer Wechsel (5 Min. bis täglich, zufällig oder nacheinander), manuelle Auswahl, eigene Bilder hinzufügen, Unschärfe und Abdunkeln einstellbar.
-- Ohne Internet gibt es 9 gezeichnete Szenen als Ersatz.
+- **Übersicht** – Kachel-Dashboard. Lange auf eine Kachel drücken (oder „Bearbeiten“) → verschieben, Größe ändern, entfernen, über **+** hinzufügen: Uhr & Wetter, CPU, GPU, RAM, Temperatur, CPU-Kerne, Netzwerk, Laufwerke, größte Verbraucher, Schnellzugriff, Musik, Lautstärke, System, Stoppuhr, Timer, Taschenrechner.
+- **Prozesse** – sortier- und filterbare Liste, beenden, Priorität ändern.
+- **Autostart** – Registry (nur du / alle Benutzer / 32-Bit), Autostart-Ordner (nur du / alle), Aufgabenplanung. An/Aus wie im Task-Manager (`StartupApproved`), Einträge für alle Benutzer fragen einmal nach Adminrechten.
+- **Klicker** – 1 bis 500 Klicks pro Sekunde (eigener Thread im Windows-Helfer, 1-ms-Timer, `SendInput`), Profile, Starttaste (Standard `F8`), **Esc stoppt immer**.
+- **Audio** – läuft gerade (Titel, Cover, Pause, Vor/Zurück; Spotify zuerst), welche App gerade Ton macht (Pegel, Lautstärke, stumm pro App), Ausgabegerät wählen. `F6` wechselt das Ausgabegerät (änderbar).
+- **Spiele** – Steam-Bibliothek, Boost-Modus und **Minispiele**: Snake, 2048, Blöcke, Minensucher, Mauerbrecher, Flatterflug (Rekorde werden gespeichert).
+- **Zeichnen** – Stift (druckempfindlich), Marker, Radierer, Text, Farben, Größen, Papier (weiß/kariert/Punkte/dunkel), Rückgängig, als PNG speichern. Mehrere Zeichnungen, automatisch gespeichert.
+- **Werkzeuge** – Stoppuhr mit Runden, Timer mit Ton, Taschenrechner (auch per Tastatur). Laufen im Hintergrund weiter.
+- **Einstellungen** – Stil **Glas** oder **Basic** (hell/dunkel), Akzentfarbe, Hintergrund (wechselnde Bilder / festes Bild / kein Bild / durchsichtig = Windows-11-Acrylic), Glas-Effekt, Tasten, Overlay, Autostart der App, Messintervall, Wetter-Ort, Updates.
+
+**Hintergründe**
+- Bis zu 50 freie Landschaftsfotos von Wikimedia Commons, in der Auflösung deines Bildschirms (bis 4K) heruntergeladen und lokal gespeichert. Das **?** unten links zeigt Titel, Fotograf, Lizenz und den Link zur Bildseite.
+- 18 gezeichnete Szenen (Bergsee, Strand, Berge, Stadt – jeweils Tag, Abend, Nacht – und mehr) als Ersatz ohne Internet.
+- Eigene Bilder, Wechsel-Intervall, Abdunkeln.
 
 **Spiel-Overlay** (eigenes, durchsichtiges Fenster)
 - Links CPU/GPU/RAM/Temperatur, rechts Boost- und Klicker-Status, unten rechts Netzwerk.
-- `Alt+Q` öffnet das Radialmenü (springt in den gewählten Bereich der App), `Esc` schließt, `Alt+H` blendet das Overlay aus.
-- Klicks gehen durch das Overlay ans Spiel, solange das Menü zu ist.
-- Funktioniert bei Spielen im Fenster- oder randlosen Vollbildmodus. Über exklusivem Vollbild kann Windows kein normales Fenster anzeigen.
+- `Alt+Q` öffnet das Radialmenü, `Alt+H` blendet aus. Standardmäßig aus.
+- Funktioniert bei Spielen im Fenster- oder randlosen Vollbildmodus.
 
 ## Starten
 
@@ -43,7 +46,8 @@ npm run dist:win   # Windows-Installer nach release/
 - Alle Windows-Abfragen laufen über **eine** dauerhafte PowerShell-Sitzung (systeminformation) bzw. einen dauerhaften Helfer (`src/main/modules/helper-script.ts`: C# für Core Audio, Mausklicks, Mediensteuerung) statt ständig neue Prozesse zu starten.
 - Gemessen wird nur, solange ein Fenster sichtbar und nicht minimiert ist.
 - Das Overlay-Fenster wird erst erzeugt, wenn es gebraucht wird; der Glas-Effekt ist abschaltbar.
-- Der Release-Build startet den Helfer auf einem echten Windows-Rechner (`scripts/test-helper.mjs`), bevor ein Update veröffentlicht wird.
+- Der Release-Build testet Helfer, 500er-Klicker und Autostart-Skript auf einem echten Windows-Rechner (`scripts/test-helper.mjs`), bevor ein Update veröffentlicht wird.
+- Der Windows-Helfer wird nur einmal kompiliert und als DLL zwischengespeichert.
 
 ## Aufbau
 

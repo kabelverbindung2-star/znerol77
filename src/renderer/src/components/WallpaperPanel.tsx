@@ -11,6 +11,7 @@ interface Props {
   all: Wallpaper[]
   current: Wallpaper
   nextAt: number | null
+  fixed?: boolean
   onSelect: (id: string) => void
   onNext: () => void
   onClose: () => void
@@ -28,7 +29,7 @@ function countdown(nextAt: number | null, now: number): string {
 }
 
 export default function WallpaperPanel(props: Props): JSX.Element {
-  const { settings, update, all, current, nextAt, onSelect, onNext, onClose } = props
+  const { settings, update, all, current, nextAt, fixed = false, onSelect, onNext, onClose } = props
   const [now, setNow] = useState(Date.now())
   const [syncing, setSyncing] = useState(false)
   const wp = settings.wallpaper
@@ -94,14 +95,18 @@ export default function WallpaperPanel(props: Props): JSX.Element {
       <div className="wp-meta">
         <div className="wp-name">{current.name}</div>
         <div className="wp-sub">{current.credit ?? (current.source === 'builtin' ? 'Gezeichnete Szene' : 'Eigenes Bild')}</div>
-        <div className="wp-row">
-          <span className="wp-sub">{countdown(nextAt, now)}</span>
-          <button type="button" className="link-btn" onClick={onNext}>
-            Jetzt wechseln
-          </button>
-        </div>
+        {!fixed && (
+          <div className="wp-row">
+            <span className="wp-sub">{countdown(nextAt, now)}</span>
+            <button type="button" className="link-btn" onClick={onNext}>
+              Jetzt wechseln
+            </button>
+          </div>
+        )}
       </div>
 
+{!fixed && (
+        <>
       <div className="wp-row">
         <span>Automatisch wechseln</span>
         <Switch on={wp.auto} onToggle={(v) => update({ wallpaper: { auto: v } })} />
@@ -129,6 +134,9 @@ export default function WallpaperPanel(props: Props): JSX.Element {
           </select>
         </label>
       </div>
+
+        </>
+      )}
 
       <div className="wp-row">
         <div>

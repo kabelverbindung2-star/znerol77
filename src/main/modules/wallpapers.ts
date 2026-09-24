@@ -1,7 +1,16 @@
-import { app, dialog, net, protocol, type BrowserWindow } from 'electron'
+import { app, dialog, net, protocol, screen, type BrowserWindow } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
+
+export interface WallpaperInfo {
+  title: string
+  artist: string
+  license: string
+  licenseUrl: string
+  descriptionUrl: string
+  date: string
+}
 
 export interface Wallpaper {
   id: string
@@ -10,33 +19,51 @@ export interface Wallpaper {
   /** zwall://… for downloaded/custom files, empty for builtin (renderer draws those) */
   url: string
   credit?: string
+  info?: WallpaperInfo
 }
 
+// Drawn scenes; the renderer knows how to paint each name.
 export const BUILTIN_SCENES = [
   'Bergsee',
   'Wald',
-  'Wüste',
-  'Nacht',
   'Nebel',
   'Herbst',
   'Fjord',
-  'Savanne',
-  'Polarlicht'
+  'Polarlicht',
+  'Nacht',
+  'Strand',
+  'Strand am Abend',
+  'Strand bei Nacht',
+  'Berge',
+  'Berge im Abendrot',
+  'Berge bei Nacht',
+  'Stadt',
+  'Stadt am Abend',
+  'Stadt bei Nacht',
+  'Wüste',
+  'Savanne'
 ]
 
 const TARGET_COUNT = 50
+const INDEX_VERSION = 2
 const RETRY_AFTER_MS = 24 * 60 * 60 * 1000
-const USER_AGENT = 'ZnerolMonitor/2.0 (desktop app; wallpaper download)'
-// Wikimedia Commons: featured (community-reviewed, freely licensed) landscape photos.
-const COMMONS_API =
-  'https://commons.wikimedia.org/w/api.php?action=query&format=json' +
-  '&generator=categorymembers&gcmtitle=Category:Featured_pictures_of_landscapes' +
-  `&gcmtype=file&gcmlimit=${TARGET_COUNT}` +
-  '&prop=imageinfo&iiprop=url%7Cextmetadata%7Cmime&iiurlwidth=1920'
+const USER_AGENT = 'ZnerolMonitor/2.1 (desktop app; wallpaper download)'
+const API = 'https://commons.wikimedia.org/w/api.php'
+const IIPROP = 'url%7Cextmetadata%7Cmime%7Csize'
+
+interface IndexItem {
+  id: string
+  file: string
+  name: string
+  credit: string
+  width?: number
+  info?: WallpaperInfo
+}
 
 interface CommonsIndex {
+  version?: number
   lastAttempt: number
-  items: { id: string; file: string; name: string; credit: string }[]
+  items: IndexItem[]
 }
 
 const baseDir = (): string => path.join(app.getPath('userData'), 'wallpapers')
@@ -72,12 +99,27 @@ export function setWallpaperListener(getWindows: () => BrowserWindow[]): void {
   }
 }
 
+/** Download size that is sharp on this screen (physical pixels), within sane limits. */
+function targetWidth(): number {
+  try {
+    const d = screen.getPrimaryDisplay()
+    const px = Math.max(d.size.width, d.size.height) * d.scaleFactor
+    return Math.round(Math.min(3840, Math.max(2560, px)))
+  } catch {
+    return 2560
+  }
+}
+
 async function readIndex(): Promise<CommonsIndex> {
   try {
     return JSON.parse(await fs.readFile(indexFile(), 'utf-8'))
   } catch {
-    return { lastAttempt: 0, items: [] }
+    return { version: INDEX_VERSION, lastAttempt: 0, items: [] }
   }
+}
+
+async function writeIndex(index: CommonsIndex): Promise<void> {
+  await fs.writeFile(indexFile(), JSON.stringify({ ...index, version: INDEX_VERSION }, null, 2), 'utf-8')
 }
 
 function stripHtml(s: string): string {
@@ -90,6 +132,28 @@ function stripHtml(s: string): string {
     .trim()
 }
 
+function infoFromPage(page: any): WallpaperInfo {
+  const ii = page.imageinfo?.[0] ?? {}
+  const meta = ii.extmetadata ?? {}
+  const title =
+    stripHtml(meta.ObjectName?.value ?? '') ||
+    String(page.title ?? '')
+      .replace(/^File:/, '')
+      .replace(/\.[^.]+$/, '')
+  return {
+    title: title.slice(0, 120),
+    artist: stripHtml(meta.Artist?.value ?? '') || 'Unbekannt',
+    license: stripHtml(meta.LicenseShortName?.value ?? ''),
+    licenseUrl: stripHtml(meta.LicenseUrl?.value ?? ''),
+    descriptionUrl: ii.descriptionurl ?? `https://commons.wikimedia.org/w/index.php?curid=${page.pageid}`,
+    date: stripHtml(meta.DateTimeOriginal?.value ?? '').slice(0, 40)
+  }
+}
+
+function creditOf(info: WallpaperInfo): string {
+  return `Foto: ${info.artist}${info.license ? ` · ${info.license}` : ''} · Wikimedia Commons`
+}
+
 export async function listWallpapers(): Promise<Wallpaper[]> {
   const builtin: Wallpaper[] = BUILTIN_SCENES.map((n) => ({
     id: `builtin:${n}`,
@@ -98,13 +162,25 @@ export async function listWallpapers(): Promise<Wallpaper[]> {
     url: ''
   }))
   const index = await readIndex()
-  const commons: Wallpaper[] = index.items.map((it) => ({
-    id: it.id,
-    source: 'commons',
-    name: it.name,
-    url: `zwall://img/commons/${encodeURIComponent(it.file)}`,
-    credit: it.credit
-  }))
+  const commons: Wallpaper[] = index.items.map((it) => {
+    const pageid = it.id.replace('commons:', '')
+    return {
+      id: it.id,
+      source: 'commons',
+      name: it.info?.title || it.name,
+      // ?w= busts the image cache after an upgrade to a sharper version
+      url: `zwall://img/commons/${encodeURIComponent(it.file)}?w=${it.width ?? 1920}`,
+      credit: it.credit,
+      info: it.info ?? {
+        title: it.name,
+        artist: it.credit.replace(/^Foto: /, '').split(' · ')[0],
+        license: '',
+        licenseUrl: '',
+        descriptionUrl: `https://commons.wikimedia.org/w/index.php?curid=${pageid}`,
+        date: ''
+      }
+    }
+  })
   let customFiles: string[] = []
   try {
     customFiles = await fs.readdir(customDir())
@@ -122,55 +198,101 @@ export async function listWallpapers(): Promise<Wallpaper[]> {
   return [...commons, ...custom, ...builtin]
 }
 
-/** Downloads up to 50 landscape photos in the background; safe to call on every start. */
+async function download(src: string, fileName: string): Promise<boolean> {
+  try {
+    const img = await net.fetch(src, { headers: { 'User-Agent': USER_AGENT } })
+    if (!img.ok) return false
+    const tmp = path.join(commonsDir(), fileName + '.part')
+    await fs.writeFile(tmp, Buffer.from(await img.arrayBuffer()))
+    await fs.rename(tmp, path.join(commonsDir(), fileName))
+    return true
+  } catch {
+    return false
+  }
+}
+
+function extFor(mime: string): string {
+  return mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'
+}
+
+async function api(params: string): Promise<any[]> {
+  const res = await net.fetch(`${API}?action=query&format=json&${params}`, { headers: { 'User-Agent': USER_AGENT } })
+  if (!res.ok) throw new Error(`Commons API ${res.status}`)
+  const data: any = await res.json()
+  return Object.values(data?.query?.pages ?? {})
+}
+
+/**
+ * Keeps up to 50 landscape photos (Wikimedia Commons featured pictures) in a local
+ * cache, sized for this screen. Older, smaller downloads are replaced by sharper ones.
+ */
 export async function syncCommonsWallpapers(force = false): Promise<void> {
   if (syncing) return
   const index = await readIndex()
-  if (!force && index.items.length >= TARGET_COUNT) return
-  if (!force && Date.now() - index.lastAttempt < RETRY_AFTER_MS && index.items.length > 0) return
+  const width = targetWidth()
+  const needsUpgrade = index.items.some((i) => (i.width ?? 1920) < width * 0.9 || !i.info)
+  const wantsMore = index.items.length < TARGET_COUNT
+  const mayRetry = force || Date.now() - index.lastAttempt > RETRY_AFTER_MS || index.items.length === 0
+  if (!needsUpgrade && !(wantsMore && mayRetry)) return
+
   syncing = true
   try {
     await fs.mkdir(commonsDir(), { recursive: true })
     index.lastAttempt = Date.now()
-    const res = await net.fetch(COMMONS_API, { headers: { 'User-Agent': USER_AGENT } })
-    if (!res.ok) throw new Error(`Commons API ${res.status}`)
-    const data: any = await res.json()
-    const pages: any[] = Object.values(data?.query?.pages ?? {})
-    const known = new Set(index.items.map((i) => i.id))
-    for (const page of pages) {
-      if (index.items.length >= TARGET_COUNT) break
-      const info = page.imageinfo?.[0]
-      const id = `commons:${page.pageid}`
-      if (!info || known.has(id)) continue
-      if (!/^image\/(jpeg|png|webp)$/.test(info.mime ?? '')) continue
-      const src: string = info.thumburl || info.url
-      const ext = info.mime === 'image/png' ? 'png' : info.mime === 'image/webp' ? 'webp' : 'jpg'
-      const fileName = `${page.pageid}.${ext}`
-      try {
-        const img = await net.fetch(src, { headers: { 'User-Agent': USER_AGENT } })
-        if (!img.ok) continue
-        await fs.writeFile(path.join(commonsDir(), fileName), Buffer.from(await img.arrayBuffer()))
-      } catch {
-        continue
+
+    // 1) sharper versions + full info for photos we already have (one request for all)
+    const old = index.items.filter((i) => (i.width ?? 1920) < width * 0.9 || !i.info)
+    if (old.length > 0) {
+      const ids = old.map((i) => i.id.replace('commons:', '')).join('%7C')
+      const pages = await api(`pageids=${ids}&prop=imageinfo&iiprop=${IIPROP}&iiurlwidth=${width}`)
+      for (const page of pages) {
+        const item = index.items.find((i) => i.id === `commons:${page.pageid}`)
+        const ii = page.imageinfo?.[0]
+        if (!item || !ii) continue
+        item.info = infoFromPage(page)
+        item.credit = creditOf(item.info)
+        if ((item.width ?? 1920) < width * 0.9 && (await download(ii.thumburl || ii.url, item.file))) {
+          item.width = ii.thumbwidth || ii.width || width
+        }
+        await writeIndex(index)
+        notify()
       }
-      const meta = info.extmetadata ?? {}
-      const artist = stripHtml(meta.Artist?.value ?? '') || 'Unbekannt'
-      const license = stripHtml(meta.LicenseShortName?.value ?? '')
-      const title = stripHtml(meta.ObjectName?.value ?? '') || String(page.title ?? '')
-        .replace(/^File:/, '')
-        .replace(/\.[^.]+$/, '')
-      index.items.push({
-        id,
-        file: fileName,
-        name: title.slice(0, 80),
-        credit: `Foto: ${artist}${license ? ` · ${license}` : ''} · Wikimedia Commons`
-      })
-      await fs.writeFile(indexFile(), JSON.stringify(index, null, 2), 'utf-8')
-      notify()
     }
-    await fs.writeFile(indexFile(), JSON.stringify(index, null, 2), 'utf-8')
+
+    // 2) fill up to 50 photos
+    if (index.items.length < TARGET_COUNT && mayRetry) {
+      const pages = await api(
+        'generator=categorymembers&gcmtitle=Category:Featured_pictures_of_landscapes' +
+          `&gcmtype=file&gcmlimit=${TARGET_COUNT}&prop=imageinfo&iiprop=${IIPROP}&iiurlwidth=${width}`
+      )
+      const known = new Set(index.items.map((i) => i.id))
+      for (const page of pages) {
+        if (index.items.length >= TARGET_COUNT) break
+        const ii = page.imageinfo?.[0]
+        const id = `commons:${page.pageid}`
+        if (!ii || known.has(id)) continue
+        if (!/^image\/(jpeg|png|webp)$/.test(ii.mime ?? '')) continue
+        // skip panoramas and portrait shots; they crop badly as a window background
+        const ratio = (ii.width ?? 16) / (ii.height ?? 9)
+        if (ratio < 1.2 || ratio > 2.6) continue
+        const fileName = `${page.pageid}.${extFor(ii.mime)}`
+        if (!(await download(ii.thumburl || ii.url, fileName))) continue
+        const info = infoFromPage(page)
+        index.items.push({
+          id,
+          file: fileName,
+          name: info.title,
+          credit: creditOf(info),
+          width: ii.thumbwidth || width,
+          info
+        })
+        await writeIndex(index)
+        notify()
+      }
+    }
+    await writeIndex(index)
   } catch {
-    await fs.writeFile(indexFile(), JSON.stringify(index, null, 2), 'utf-8').catch(() => undefined)
+    await writeIndex(index).catch(() => undefined)
   } finally {
     syncing = false
     notify()

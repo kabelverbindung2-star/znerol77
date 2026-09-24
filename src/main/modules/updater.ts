@@ -36,6 +36,17 @@ export function startAutoUpdates(onChange: (s: UpdateState) => void): void {
   setInterval(check, 60 * 60 * 1000)
 }
 
+export async function checkForUpdatesNow(): Promise<string> {
+  if (!app.isPackaged) return 'Nur in der installierten App verfügbar'
+  try {
+    const r = await autoUpdater.checkForUpdates()
+    const latest = r?.updateInfo?.version
+    return latest && latest !== app.getVersion() ? `Version ${latest} wird geladen…` : 'Du hast die neueste Version.'
+  } catch {
+    return 'Keine Verbindung zu GitHub'
+  }
+}
+
 export function getUpdateState(): UpdateState {
   return state
 }

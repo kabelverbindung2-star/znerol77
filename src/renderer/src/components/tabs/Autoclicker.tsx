@@ -127,10 +127,10 @@ export default function Autoclicker(): JSX.Element {
       <div className="topbar">
         <div>
           <div className="page-title">Autoclicker</div>
-          <div className="page-subtitle">Profile, Hotkeys, Zufalls-Delay & mehrere Klick-Modi</div>
+          <div className="page-subtitle">Bis zu 500 Klicks pro Sekunde · Profile · Starttaste · Esc stoppt immer</div>
         </div>
         {status.running ? (
-          <span className="pill">● Aktiv · {status.clicks} Klicks</span>
+          <span className="pill">Aktiv · {status.clicks} Klicks</span>
         ) : (
           <span className="pill off">Gestoppt</span>
         )}
@@ -174,17 +174,37 @@ export default function Autoclicker(): JSX.Element {
           </div>
 
           <div className="row">
-            <div className="field" style={{ flex: 1 }}>
-              <label>Intervall (ms)</label>
-              <input
-                type="number"
-                min={1}
-                value={active.intervalMs}
-                onChange={(e) => updateActive({ intervalMs: Number(e.target.value) })}
-              />
+            <div className="field" style={{ flex: 2 }}>
+              <label>Klicks pro Sekunde</label>
+              <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  style={{ width: 110 }}
+                  value={Math.round(1000 / Math.max(2, active.intervalMs))}
+                  onChange={(e) => {
+                    const cps = Math.min(500, Math.max(1, Number(e.target.value) || 1))
+                    updateActive({ intervalMs: Math.max(2, Math.round((1000 / cps) * 100) / 100) })
+                  }}
+                />
+                {[5, 10, 20, 50, 100, 250, 500].map((cps) => (
+                  <button
+                    key={cps}
+                    type="button"
+                    className={`chip ${Math.round(1000 / Math.max(2, active.intervalMs)) === cps ? 'active' : ''}`}
+                    onClick={() => updateActive({ intervalMs: 1000 / cps, jitterMs: cps >= 100 ? 0 : active.jitterMs })}
+                  >
+                    {cps}
+                  </button>
+                ))}
+              </div>
+              <span className="quick-sub">
+                = alle {Math.max(2, active.intervalMs).toFixed(active.intervalMs < 10 ? 1 : 0)} ms · Esc stoppt immer sofort
+              </span>
             </div>
             <div className="field" style={{ flex: 1 }}>
-              <label>Zufalls-Verzögerung (± ms)</label>
+              <label>Zufällige Pause dazu (0 bis … ms)</label>
               <input
                 type="number"
                 min={0}
@@ -250,10 +270,10 @@ export default function Autoclicker(): JSX.Element {
               <input type="text" value={active.hotkey} onChange={(e) => updateActive({ hotkey: e.target.value })} />
             </div>
             <button className="btn" style={{ marginBottom: 14 }} onClick={applyHotkey}>
-              Hotkey aktivieren
+              Starttaste aktivieren
             </button>
           </div>
-          {hotkeyStatus === 'ok' && <div className="page-subtitle">Hotkey aktiv — startet/stoppt dieses Profil.</div>}
+          {hotkeyStatus === 'ok' && <div className="page-subtitle">Starttaste aktiv – startet und stoppt dieses Profil.</div>}
           {hotkeyStatus === 'failed' && (
             <div className="win-only-banner">Diese Taste ist schon belegt (F6 wechselt z. B. das Audiogerät) oder ungültig.</div>
           )}
@@ -261,11 +281,11 @@ export default function Autoclicker(): JSX.Element {
           <div className="card-actions">
             {!isRunningThis ? (
               <button className="btn btn-primary" onClick={start}>
-                ▶ Starten
+                Starten
               </button>
             ) : (
               <button className="btn btn-danger" onClick={stop}>
-                ■ Stoppen
+                Stoppen
               </button>
             )}
           </div>

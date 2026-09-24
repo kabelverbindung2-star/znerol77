@@ -13,6 +13,9 @@ const api = {
   system: {
     info: () => ipcRenderer.invoke('system:info'),
     getLoginItem: (): Promise<boolean> => ipcRenderer.invoke('app:getLoginItem'),
+    version: (): Promise<string> => ipcRenderer.invoke('app:version'),
+    openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
+    openDataFolder: () => ipcRenderer.invoke('app:openDataFolder'),
     setLoginItem: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke('app:setLoginItem', enabled)
   },
   perf: {
@@ -29,7 +32,16 @@ const api = {
     add: (name: string, command: string) => ipcRenderer.invoke('autostart:add', name, command),
     remove: (entry: unknown) => ipcRenderer.invoke('autostart:remove', entry),
     toggle: (entry: unknown, enable: boolean) =>
-      ipcRenderer.invoke('autostart:toggle', entry, enable)
+      ipcRenderer.invoke('autostart:toggle', entry, enable),
+    reveal: (entry: unknown) => ipcRenderer.invoke('autostart:reveal', entry),
+    icons: (paths: string[]): Promise<Record<string, string>> => ipcRenderer.invoke('autostart:icons', paths),
+    pickFile: (): Promise<string | null> => ipcRenderer.invoke('autostart:pickFile')
+  },
+  sketches: {
+    list: () => ipcRenderer.invoke('sketches:list'),
+    get: (id: string) => ipcRenderer.invoke('sketches:get', id),
+    save: (sketch: unknown) => ipcRenderer.invoke('sketches:save', sketch),
+    remove: (id: string) => ipcRenderer.invoke('sketches:delete', id)
   },
   autoclicker: {
     defaultProfiles: () => ipcRenderer.invoke('autoclicker:defaultProfiles'),
@@ -90,6 +102,7 @@ const api = {
   update: {
     state: () => ipcRenderer.invoke('update:state'),
     install: () => ipcRenderer.invoke('update:install'),
+    check: (): Promise<string> => ipcRenderer.invoke('update:check'),
     onChanged: (cb: (s: unknown) => void) => subscribe('update:changed', cb)
   },
   nav: {

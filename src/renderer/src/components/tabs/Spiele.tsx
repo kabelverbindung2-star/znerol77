@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import InfoTip from '../ui/InfoTip'
-import { BoostExplainer, DEFAULT_BLOCKLIST } from './Uebersicht'
+import MiniGames from '../games/MiniGames'
+import { BoostExplainer, DEFAULT_BLOCKLIST } from '../../lib/boost'
 
 interface GameEntry {
   appId: string
@@ -81,7 +82,7 @@ export default function Spiele(): JSX.Element {
       {error && <div className="win-only-banner">⚠ {error}</div>}
       {boostOn && (
         <div className="win-only-banner" style={{ background: 'rgba(53,214,138,0.1)', borderColor: 'rgba(53,214,138,0.3)', color: 'var(--accent-green)' }}>
-          ⚡ Boost aktiv: Höchstleistungs-Energieplan gesetzt, Hintergrundprozesse beendet.
+          Boost aktiv: Höchstleistungs-Energieplan gesetzt, Hintergrundprozesse beendet.
         </div>
       )}
 
@@ -111,7 +112,7 @@ export default function Spiele(): JSX.Element {
       <div className="section-title">Bibliothek</div>
       {loading && <div className="empty-state">Suche installierte Spiele…</div>}
       {!loading && games.length === 0 && !error && (
-        <div className="empty-state">Keine Steam-Bibliothek gefunden</div>
+        <div className="empty-state">Keine Steam-Spiele gefunden – aber unten gibt es Minispiele.</div>
       )}
       <div className="grid">
         {games.map((g) => (
@@ -122,11 +123,13 @@ export default function Spiele(): JSX.Element {
             </div>
             <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>{g.name}</div>
             <button className="btn btn-primary btn-sm" onClick={() => launch(g.appId)}>
-              ▶ Starten
+              Starten
             </button>
           </div>
         ))}
       </div>
+
+      <MiniGames />
     </>
   )
 }

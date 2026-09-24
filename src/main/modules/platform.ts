@@ -9,9 +9,11 @@ export function runPowerShell(script: string, timeoutMs = 8000): Promise<string>
       reject(new Error('Nur unter Windows verfügbar'))
       return
     }
+    // -EncodedCommand avoids every Windows command-line quoting problem
+    const encoded = Buffer.from(script, 'utf16le').toString('base64')
     const child = spawn(
       'powershell.exe',
-      ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
       { windowsHide: true }
     )
     let stdout = ''
@@ -20,7 +22,8 @@ export function runPowerShell(script: string, timeoutMs = 8000): Promise<string>
       child.kill()
       reject(new Error('PowerShell-Timeout'))
     }, timeoutMs)
-    child.stdout.on('data', (d) => (stdout += d.toString()))
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (d) => (stdout += d))
     child.stderr.on('data', (d) => (stderr += d.toString()))
     child.on('error', (err) => {
       clearTimeout(timer)
