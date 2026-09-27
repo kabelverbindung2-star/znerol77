@@ -4,7 +4,7 @@ import { readFileSync } from 'fs'
 
 const src = readFileSync(new URL('../src/main/modules/radio-list.ts', import.meta.url), 'utf-8')
 const lists = {}
-new Function('exp', src.replace(/export const (\w+) =/g, 'exp.$1 =').replace(/^\/\/.*$/gm, '').replace(/^export (interface|type)[\s\S]*?^}/gm, ''))(lists)
+new Function('exp', src.replace(/export const (\w+) =/g, 'exp.$1 =').replace(/^\/\/.*$/gm, ''))(lists)
 const UA = 'ZnerolMonitor/2.2 (https://github.com/kabelverbindung2-star/znerol77; radio check)'
 const API = 'https://de1.api.radio-browser.info/json'
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))

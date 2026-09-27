@@ -2,13 +2,8 @@
 // directory (radio-browser.info) when the app runs, so changed stream addresses do not break
 // them. Checked with scripts/probe-radio.mjs.
 
-export interface StationPick {
-  name: string // shown in the app
-  search: string // name in the directory
-  genre: string
-}
-
-export const STATIONS: StationPick[] = [
+// name: shown in the app · search: name in the directory · genre: group in the app
+export const STATIONS = [
   { name: '1LIVE', search: '1LIVE', genre: 'Charts' },
   { name: 'bigFM', search: 'bigFM', genre: 'Charts' },
   { name: 'ENERGY', search: 'ENERGY Berlin', genre: 'Charts' },
