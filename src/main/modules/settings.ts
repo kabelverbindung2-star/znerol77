@@ -54,6 +54,7 @@ export interface Settings {
     seconds: boolean
     black: boolean // plain black screen, the quietest option
     videoId: string | null // one chosen film; null = change now and then
+    span: 'one' | 'same' | 'each' // several monitors: one big video across all, the same on each, different ones
   }
   accent: string
 }
@@ -89,7 +90,7 @@ const DEFAULTS: Settings = {
   weather: null,
   dashboard: { widgets: DEFAULT_WIDGETS, widgets2: DEFAULT_WIDGETS_2 },
   screens: { dual: false, displayId: null },
-  rest: { video: true, music: false, clock: 'corner', seconds: false, black: false, videoId: null },
+  rest: { video: true, music: false, clock: 'corner', seconds: false, black: false, videoId: null, span: 'one' },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }

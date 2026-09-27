@@ -130,10 +130,19 @@ const api = {
   media: {
     list: (force = false) => ipcRenderer.invoke('media:list', force)
   },
+  radio: {
+    stations: (force = false) => ipcRenderer.invoke('radio:stations', force),
+    search: (query: string, tag?: string) => ipcRenderer.invoke('radio:search', query, tag),
+    genres: (): Promise<{ label: string; tag: string }[]> => ipcRenderer.invoke('radio:genres'),
+    played: (id: string) => ipcRenderer.invoke('radio:played', id)
+  },
+  spotify: {
+    open: () => ipcRenderer.invoke('app:openSpotify')
+  },
   music: {
     /** sent from the second screen / rest screens to the main window, which plays the music */
-    command: (cmd: string, id?: string) => ipcRenderer.invoke('music:command', cmd, id),
-    onCommand: (cb: (c: { cmd: string; id?: string }) => void) => subscribe('music:command', cb)
+    command: (cmd: string, id?: string, payload?: unknown) => ipcRenderer.invoke('music:command', cmd, id, payload),
+    onCommand: (cb: (c: { cmd: string; id?: string; payload?: any }) => void) => subscribe('music:command', cb)
   }
 }
 

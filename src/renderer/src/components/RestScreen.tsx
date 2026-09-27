@@ -78,6 +78,21 @@ function RestSettings({
         </div>
       )}
       <div className="settings-row">
+        <div>
+          <div>Mehrere Bildschirme</div>
+          <div className="quick-sub">gilt beim nächsten Start</div>
+        </div>
+        <Choice
+          value={rest.span}
+          options={[
+            { value: 'one', label: 'Ein großes' },
+            { value: 'same', label: 'Gleiches' },
+            { value: 'each', label: 'Verschiedene' }
+          ]}
+          onChange={(v) => update({ rest: { span: v } })}
+        />
+      </div>
+      <div className="settings-row">
         <div>Uhr</div>
         <Choice
           value={rest.clock}
@@ -142,7 +157,10 @@ function RestSettings({
  * (or second), no blur, no system measurements. A short click or any key ends it; a long
  * press or right click opens its settings.
  */
-export default function RestScreen({ index }: { index: number }): JSX.Element {
+export default function RestScreen({ index: rawIndex }: { index: number }): JSX.Element {
+  // 100+ = every monitor shows the same film (see rest.ts); otherwise each its own
+  const same = rawIndex >= 100
+  const index = same ? rawIndex - 100 : rawIndex
   const { settings, update } = useSettings()
   const walls = useWallpapers(settings, noop, false)
   const [now, setNow] = useState(() => new Date())
@@ -217,7 +235,7 @@ export default function RestScreen({ index }: { index: number }): JSX.Element {
       }}
     >
       {!rest.black && !(withVideo && film) && <img className="rest-bg" src={src} alt="" draggable={false} />}
-      {withVideo && <NatureVideo videos={media.videos} offset={index * 7} pinnedId={rest.videoId} onCurrent={onFilm} />}
+      {withVideo && <NatureVideo videos={media.videos} offset={same ? 0 : index * 7} seeded={same} pinnedId={rest.videoId} onCurrent={onFilm} />}
       {rest.clock === 'corner' && (
         <div className="rest-corner">
           <div className="rest-date">

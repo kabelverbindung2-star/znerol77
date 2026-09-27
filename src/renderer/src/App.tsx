@@ -89,7 +89,7 @@ function MainApp(): JSX.Element {
   }, [])
   const startRest = (): void => {
     setRestNote(null)
-    if (settings.rest.music) calmMusic.play().catch(() => undefined)
+    if (settings.rest.music) calmMusic.command('play')
     window.znerol.rest.start().catch((e: Error) => setRestNote(`Ruhemodus ging nicht: ${e.message}`))
   }
 
@@ -161,15 +161,17 @@ function MainApp(): JSX.Element {
   const music = calmMusic.useCalmMusic()
   useEffect(() => {
     if (SECOND) return
-    return window.znerol.music.onCommand(({ cmd, id }) => calmMusic.runCommand(cmd as calmMusic.MusicCommand, id))
+    return window.znerol.music.onCommand(({ cmd, id, payload }) =>
+      calmMusic.runCommand(cmd as calmMusic.MusicCommand, id, payload?.station, payload?.list)
+    )
   }, [])
   const musicItems = (): MenuItem[] => [
+    { label: 'Radio & Musik …', onClick: () => setMusicPicker(true) },
     {
-      label: !SECOND && music.playing ? `Ruhemusik pausieren${music.current ? ` (${music.current.title.slice(0, 28)})` : ''}` : 'Ruhemusik abspielen',
+      label: !SECOND && music.playing ? `Pause${music.current ? ` (${music.current.title.slice(0, 28)})` : ''}` : 'Musik abspielen',
       onClick: () => calmMusic.command(!SECOND && music.playing ? 'pause' : 'play')
     },
-    { label: 'Nächstes Stück', onClick: () => calmMusic.command('next') },
-    { label: 'Musik auswählen …', onClick: () => setMusicPicker(true) }
+    { label: 'Weiter (nächster Sender / nächstes Stück)', onClick: () => calmMusic.command('next') }
   ]
   const setBackground = (bg: typeof background): void => {
     update({ appearance: { style: 'glass', background: bg } })
@@ -235,9 +237,20 @@ function MainApp(): JSX.Element {
             hotkeys={hotkeys}
             board="widgets2"
             barExtra={
-              <button type="button" className="btn btn-sm ghost" onClick={() => window.znerol.win.close()} title="Zweiten Bildschirm ausschalten">
-                <NavIcon name="close" size={14} /> Schließen
-              </button>
+              <>
+                <button type="button" className="btn btn-sm ghost" onClick={(e) => ctx.open(e, backgroundItems())} title="Hintergrund: Naturvideos, Bilder …">
+                  <NavIcon name="video" size={14} /> Hintergrund
+                </button>
+                <button type="button" className="btn btn-sm ghost" onClick={() => setMusicPicker(true)} title="Radio, Ruhemusik, Spotify">
+                  <NavIcon name="music" size={14} /> Musik
+                </button>
+                <button type="button" className="btn btn-sm ghost" onClick={startRest} title="Ruhemodus auf allen Bildschirmen">
+                  <NavIcon name="ruhe" size={14} /> Ruhemodus
+                </button>
+                <button type="button" className="btn btn-sm ghost" onClick={() => window.znerol.win.close()} title="Zweiten Bildschirm ausschalten">
+                  <NavIcon name="close" size={14} /> Schließen
+                </button>
+              </>
             }
           />
         </main>
@@ -299,7 +312,7 @@ function MainApp(): JSX.Element {
           <button
             type="button"
             className={music.playing ? 'active' : ''}
-            title="Ruhemusik (auch Rechtsklick auf freie Fläche)"
+            title="Radio & Musik (auch Rechtsklick auf freie Fläche)"
             onClick={(e) => ctx.open(e, musicItems())}
           >
             <NavIcon name="music" />

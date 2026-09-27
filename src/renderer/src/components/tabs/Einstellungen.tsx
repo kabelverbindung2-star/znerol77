@@ -286,6 +286,17 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
               Starten
             </button>
           </Row>
+          <Row label="Ruhemodus auf mehreren Bildschirmen" sub="Ein großes Video über alle Bildschirme, das gleiche auf jedem oder verschiedene">
+            <Choice
+              value={settings.rest.span}
+              options={[
+                { value: 'one', label: 'Ein großes' },
+                { value: 'same', label: 'Gleiches' },
+                { value: 'each', label: 'Verschiedene' }
+              ]}
+              onChange={(v) => update({ rest: { span: v } })}
+            />
+          </Row>
           <Row label="Naturvideos im Ruhemodus" sub="Aus = stilles Bild, am sparsamsten">
             <Switch on={settings.rest.video} onToggle={(v) => update({ rest: { video: v } })} />
           </Row>

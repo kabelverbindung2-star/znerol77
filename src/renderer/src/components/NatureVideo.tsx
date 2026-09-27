@@ -13,8 +13,11 @@ export default function NatureVideo({
   offset = 0,
   paused = false,
   pinnedId = null,
+  seeded = false,
   onCurrent
 }: {
+  /** start at a film picked from the current hour, so several screens show the same one */
+  seeded?: boolean
   videos: MediaItem[]
   offset?: number
   paused?: boolean
@@ -23,7 +26,11 @@ export default function NatureVideo({
   onCurrent?: (v: MediaItem | null) => void
 }): JSX.Element | null {
   const pinnedIndex = pinnedId ? videos.findIndex((v) => v.id === pinnedId) : -1
-  const [index, setIndex] = useState(() => (videos.length ? (offset + Math.floor(Math.random() * videos.length)) % videos.length : 0))
+  const [index, setIndex] = useState(() => {
+    if (!videos.length) return 0
+    const start = seeded ? Math.floor(Date.now() / 3_600_000) : Math.floor(Math.random() * videos.length)
+    return (offset + start) % videos.length
+  })
   // a newly chosen film takes over at once
   useEffect(() => {
     if (pinnedIndex >= 0) setIndex(pinnedIndex)

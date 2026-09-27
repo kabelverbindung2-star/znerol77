@@ -130,7 +130,7 @@ export function Countdown({ compact = false }: { compact?: boolean }): JSX.Eleme
 const BASIC = ['AC', '⌫', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '±', '0', ',', '=']
 const EXTRA = ['(', ')', '√', 'x²', '^', 'π', '1/x']
 
-export function Calculator({ compact = false }: { compact?: boolean }): JSX.Element {
+export function Calculator({ compact = false, big = false }: { compact?: boolean; big?: boolean }): JSX.Element {
   const [expr, setExprState] = useState('')
   const exprRef = useRef('')
   // always act on the latest text, even when several keys arrive before a re-render
@@ -140,7 +140,7 @@ export function Calculator({ compact = false }: { compact?: boolean }): JSX.Elem
   }
   const [result, setResult] = useState<string | null>(null)
   const [history, setHistory] = useState<{ expr: string; result: string }[]>([])
-  const [more, setMore] = useState(false)
+  const [more, setMore] = useState(big)
   const root = useRef<HTMLDivElement>(null)
 
   const preview = (() => {
@@ -215,7 +215,7 @@ export function Calculator({ compact = false }: { compact?: boolean }): JSX.Elem
       .join(' ')
 
   return (
-    <div ref={root} className={`tool calculator ${compact ? 'compact' : ''}`} tabIndex={0} aria-label="Taschenrechner">
+    <div ref={root} className={`tool calculator ${compact ? 'compact' : ''} ${big ? 'big' : ''}`} tabIndex={0} aria-label="Taschenrechner">
       <div className="calc-screen">
         <div className="calc-expr mono">{expr || '0'}</div>
         <div className="calc-result mono">{result ?? (preview && preview !== expr ? `= ${preview}` : '')}</div>

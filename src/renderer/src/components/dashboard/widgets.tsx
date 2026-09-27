@@ -3,7 +3,7 @@ import Sparkline from '../ui/Sparkline'
 import Switch from '../ui/Switch'
 import InfoTip from '../ui/InfoTip'
 import WeatherChip from '../WeatherChip'
-import CalmMusic from '../CalmMusic'
+import MusicPanel from '../MusicPanel'
 import { Calculator, Converter, Countdown, Notes, RandomTool, Stopwatch } from '../tools/Tools'
 import { usePoll } from '../../lib/usePoll'
 import { BoostExplainer, useBoost } from '../../lib/boost'
@@ -379,11 +379,11 @@ function WeatherWidget({ settings, update }: WidgetProps): JSX.Element {
 const pct = (v: number | null | undefined): string => (v == null ? '–' : v.toFixed(0))
 
 export const WIDGETS: Record<string, WidgetDef> = {
-  clock: { name: 'Uhr & Wetter', desc: 'Große Uhrzeit, Datum und Wetter-Symbol', sizes: ['m', 'l'], render: (p) => <ClockWidget {...p} /> },
+  clock: { name: 'Uhr & Wetter', desc: 'Große Uhrzeit, Datum und Wetter-Symbol', sizes: ['s', 'm', 'l'], render: (p) => <ClockWidget {...p} /> },
   cpu: {
     name: 'Prozessor',
     desc: 'Auslastung mit Verlauf',
-    sizes: ['s', 'm'],
+    sizes: ['s', 'm', 'l'],
     render: ({ sample, history }) => (
       <Metric label="CPU" sub={sample?.cpu.speed ? `${sample.cpu.speed.toFixed(1)} GHz` : ''} value={sample ? pct(sample.cpu.load) : '–'} unit=" %" data={history.cpu} color="var(--accent)" max={100} />
     )
@@ -391,7 +391,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   gpu: {
     name: 'Grafikkarte',
     desc: 'GPU-Auslastung',
-    sizes: ['s', 'm'],
+    sizes: ['s', 'm', 'l'],
     render: ({ sample, history }) => {
       const g = sample?.gpu[0]
       return (
@@ -410,7 +410,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   ram: {
     name: 'Arbeitsspeicher',
     desc: 'Belegter RAM',
-    sizes: ['s', 'm'],
+    sizes: ['s', 'm', 'l'],
     render: ({ sample, history }) => (
       <Metric label="RAM" sub={sample ? `${sample.mem.totalGB.toFixed(1)} GB` : ''} value={sample ? sample.mem.usedGB.toFixed(1) : '–'} unit=" GB" data={history.mem} color="var(--text)" max={100} />
     )
@@ -418,7 +418,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   temp: {
     name: 'Temperatur',
     desc: 'CPU- bzw. GPU-Temperatur',
-    sizes: ['s', 'm'],
+    sizes: ['s', 'm', 'l'],
     render: ({ sample, history }) => {
       const t = sample?.cpu.temp ?? sample?.gpu[0]?.temp ?? null
       return (
@@ -433,20 +433,20 @@ export const WIDGETS: Record<string, WidgetDef> = {
       )
     }
   },
-  processes: { name: 'Größte Verbraucher', desc: 'Programme mit der meisten Last', sizes: ['s', 'm'], render: (p) => <ProcessesWidget {...p} /> },
-  quick: { name: 'Schnellzugriff', desc: 'Overlay, Boost, Klicker, Autostart', sizes: ['m'], render: (p) => <QuickWidget {...p} /> },
-  media: { name: 'Musik', desc: 'Was gerade läuft, mit Pause und Überspringen', sizes: ['m', 'l'], render: (p) => <MediaWidget {...p} /> },
-  calm: { name: 'Ruhemusik', desc: '50 ruhige, freie Musikstücke', sizes: ['m', 'l'], render: () => <CalmMusic /> },
-  volume: { name: 'Lautstärke', desc: 'Lautstärke, stumm, Gerät wechseln', sizes: ['s', 'm'], render: () => <VolumeWidget /> },
-  network: { name: 'Netzwerk', desc: 'Download und Upload', sizes: ['m', 'l'], render: (p) => <NetworkWidget {...p} /> },
-  disks: { name: 'Laufwerke', desc: 'Belegter Speicherplatz', sizes: ['m'], render: (p) => <DisksWidget {...p} /> },
-  cores: { name: 'CPU-Kerne', desc: 'Jeder Kern einzeln', sizes: ['m', 'l'], render: (p) => <CoresWidget {...p} /> },
-  system: { name: 'System', desc: 'PC-Name, Windows, Laufzeit', sizes: ['s', 'm'], render: (p) => <SystemWidget {...p} /> },
-  weather: { name: 'Wetter', desc: 'Wetter-Symbol mit Temperatur', sizes: ['s', 'm'], render: (p) => <WeatherWidget {...p} /> },
+  processes: { name: 'Größte Verbraucher', desc: 'Programme mit der meisten Last', sizes: ['s', 'm', 'l'], render: (p) => <ProcessesWidget {...p} /> },
+  quick: { name: 'Schnellzugriff', desc: 'Overlay, Boost, Klicker, Autostart', sizes: ['s', 'm', 'l'], render: (p) => <QuickWidget {...p} /> },
+  media: { name: 'Musik', desc: 'Was gerade läuft, mit Pause und Überspringen', sizes: ['s', 'm', 'l'], render: (p) => <MediaWidget {...p} /> },
+  calm: { name: 'Radio & Ruhemusik', desc: 'Radiosender, ruhige Musik, Spotify steuern', sizes: ['s', 'm', 'l'], render: () => <MusicPanel compact /> },
+  volume: { name: 'Lautstärke', desc: 'Lautstärke, stumm, Gerät wechseln', sizes: ['s', 'm', 'l'], render: () => <VolumeWidget /> },
+  network: { name: 'Netzwerk', desc: 'Download und Upload', sizes: ['s', 'm', 'l'], render: (p) => <NetworkWidget {...p} /> },
+  disks: { name: 'Laufwerke', desc: 'Belegter Speicherplatz', sizes: ['s', 'm', 'l'], render: (p) => <DisksWidget {...p} /> },
+  cores: { name: 'CPU-Kerne', desc: 'Jeder Kern einzeln', sizes: ['s', 'm', 'l'], render: (p) => <CoresWidget {...p} /> },
+  system: { name: 'System', desc: 'PC-Name, Windows, Laufzeit', sizes: ['s', 'm', 'l'], render: (p) => <SystemWidget {...p} /> },
+  weather: { name: 'Wetter', desc: 'Wetter-Symbol mit Temperatur', sizes: ['s', 'm', 'l'], render: (p) => <WeatherWidget {...p} /> },
   stopwatch: {
     name: 'Stoppuhr',
     desc: 'Läuft weiter, auch im Hintergrund',
-    sizes: ['s', 'm'],
+    sizes: ['s', 'm', 'l'],
     render: () => (
       <>
         <Head title="Stoppuhr" />
@@ -457,7 +457,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   timer: {
     name: 'Timer',
     desc: 'Countdown mit Ton',
-    sizes: ['s', 'm'],
+    sizes: ['s', 'm', 'l'],
     render: () => (
       <>
         <Head title="Timer" />
@@ -479,7 +479,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   converter: {
     name: 'Umrechner',
     desc: 'Länge, Gewicht, Temperatur, Daten …',
-    sizes: ['m'],
+    sizes: ['s', 'm', 'l'],
     render: () => (
       <>
         <Head title="Umrechner" />
@@ -490,7 +490,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   random: {
     name: 'Zufall',
     desc: 'Würfel, Münze, Zufallszahl',
-    sizes: ['m'],
+    sizes: ['s', 'm', 'l'],
     render: () => (
       <>
         <Head title="Zufall" />
@@ -501,7 +501,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   calculator: {
     name: 'Taschenrechner',
     desc: 'Rechnen, auch mit Tastatur',
-    sizes: ['m'],
+    sizes: ['s', 'm', 'l'],
     render: () => (
       <>
         <Head title="Rechner" />

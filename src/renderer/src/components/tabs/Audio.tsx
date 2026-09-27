@@ -1,4 +1,4 @@
-import CalmMusic from '../CalmMusic'
+import MusicPanel from '../MusicPanel'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePoll } from '../../lib/usePoll'
 import { useSettings } from '../../lib/useSettings'
@@ -302,7 +302,8 @@ export default function Audio(): JSX.Element {
         </div>
       </div>
       <section className="glass section calm-section">
-        <CalmMusic full />
+        <div className="section-title">Musik: Radio, Ruhemusik, Spotify</div>
+        <MusicPanel />
       </section>
     </>
   )

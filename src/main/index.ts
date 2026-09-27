@@ -51,6 +51,7 @@ import {
 } from './modules/overlay'
 import { startRest, stopRest, isResting, displayOff } from './modules/rest'
 import { getMedia as getMediaLibrary } from './modules/media'
+import { listStations, searchStations, genres as radioGenres, reportPlay } from './modules/radio'
 import { startAutoUpdates, getUpdateState, installUpdateNow, checkForUpdatesNow } from './modules/updater'
 
 const PRELOAD = join(__dirname, '../preload/index.mjs')
@@ -426,8 +427,9 @@ function wireIpc(): void {
     }))
   })
 
-  ipcMain.handle('rest:start', () =>
+  ipcMain.handle('rest:start', async () =>
     startRest({
+      span: (await getSettings()).rest.span,
       preload: PRELOAD,
       load: (w, query) => loadPage(w, 'rest', query),
       mainWindow: () => mainWindow,
@@ -447,8 +449,13 @@ function wireIpc(): void {
   ipcMain.handle('rest:stop', () => stopRest())
   ipcMain.handle('display:off', () => displayOff())
   ipcMain.handle('media:list', (_e, force?: boolean) => getMediaLibrary(Boolean(force)))
-  ipcMain.handle('music:command', (_e, cmd: string, id?: string) => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('music:command', { cmd, id })
+  ipcMain.handle('radio:stations', (_e, force?: boolean) => listStations(Boolean(force)))
+  ipcMain.handle('radio:search', (_e, query: string, tag?: string) => searchStations(String(query ?? ''), tag ? String(tag) : undefined))
+  ipcMain.handle('radio:genres', () => radioGenres())
+  ipcMain.handle('radio:played', (_e, id: string) => reportPlay(String(id)))
+  ipcMain.handle('app:openSpotify', () => shell.openExternal('spotify:').catch(() => shell.openExternal('https://open.spotify.com')))
+  ipcMain.handle('music:command', (_e, cmd: string, id?: string, payload?: unknown) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('music:command', { cmd, id, payload })
   })
 
   ipcMain.handle('wallpapers:list', () => listWallpapers())

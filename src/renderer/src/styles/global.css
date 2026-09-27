@@ -3681,3 +3681,398 @@ html[data-bg='transparent'] body {
 .calm-list.picker button {
   grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 48px 90px;
 }
+
+/* ---------- music: radio, calm music, Spotify ---------- */
+.music-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.music-tabs {
+  align-self: flex-start;
+}
+
+.now-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--fill-1);
+  min-width: 0;
+}
+
+.now-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.now-text .np-title,
+.now-text .np-artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now-bar .np-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.now-bar input[type='range'] {
+  width: 110px;
+  margin-left: 6px;
+}
+
+.station-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: var(--fill-2);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--text-dim);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.station-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+
+.station-logo.big {
+  width: 72px;
+  height: 72px;
+}
+
+.station-logo.big img {
+  object-fit: cover;
+}
+
+.radio-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.music-panel.compact .station-grid {
+  max-height: 230px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.music-panel.compact .now-bar input[type='range'] {
+  display: none;
+}
+
+.station {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-line);
+  background: var(--fill-1);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.station .station-logo {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+
+.station:hover {
+  background: var(--fill-2);
+}
+
+.station.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.station-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.station-text b,
+.station-text span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.spotify-tab .now-bar {
+  width: 100%;
+}
+
+.music-modal {
+  width: min(960px, 94vw);
+}
+
+.music-body .calm-list {
+  max-height: 420px;
+}
+
+/* ---------- Werkzeuge: sizes and the big view ---------- */
+.content-werkzeuge .tools-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  container-type: normal;
+}
+
+.tool-card.tool-calc {
+  grid-row: span 2;
+}
+
+.tool-card.tool-notes {
+  grid-column: span 2;
+}
+
+@media (max-width: 1100px) {
+  .content-werkzeuge .tools-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tool-card.tool-notes {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .content-werkzeuge .tools-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tool-card.tool-notes {
+    grid-column: span 1;
+  }
+  .tool-card.tool-calc {
+    grid-row: span 1;
+  }
+}
+
+.tool-card-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+button.tool-icon {
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+button.tool-icon:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+.tool-expand {
+  opacity: 0.6;
+}
+
+.tool-card:hover .tool-expand {
+  opacity: 1;
+}
+
+.tool-focus-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.45);
+  animation: fadein 0.15s ease both;
+}
+
+.tool-card.tool-focus {
+  width: min(1000px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 22px 26px 26px;
+  background: var(--pop-bg);
+  grid-row: auto;
+  grid-column: auto;
+}
+
+.tool-focus .tool-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+}
+
+.tool-focus .tool-card-title {
+  font-size: 20px;
+}
+
+.tool-focus-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tool-focus .tool-display {
+  font-size: clamp(64px, 9vw, 120px);
+}
+
+.tool-focus .tool-actions .btn {
+  padding: 12px 26px;
+  font-size: 16px;
+}
+
+.tool-focus .time-field input {
+  width: 96px;
+  font-size: 34px;
+}
+
+.tool-focus .time-colon {
+  font-size: 34px;
+}
+
+.tool-focus .notes-area {
+  min-height: 55vh;
+  font-size: 16px;
+}
+
+.tool-focus .conv-row {
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+
+.tool-focus .conv-row .text-input,
+.tool-focus .conv-result {
+  font-size: 32px;
+}
+
+.tool-focus .dice {
+  font-size: 90px;
+}
+
+.tool-focus .rand-out {
+  font-size: 44px;
+}
+
+/* big calculator: keys left, history right */
+.calculator.big {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'screen'
+    'toggle'
+    'extra'
+    'keys';
+  gap: 12px;
+  align-items: start;
+}
+
+.calculator.big .calc-screen {
+  grid-area: screen;
+  min-height: 120px;
+}
+
+.calculator.big .calc-expr {
+  font-size: 48px;
+}
+
+.calculator.big .calc-result {
+  font-size: 20px;
+}
+
+.calculator.big .calc-extra-row {
+  grid-area: toggle;
+}
+
+.calculator.big .calc-keys.extra {
+  grid-area: extra;
+}
+
+.calculator.big .calc-keys:not(.extra) {
+  grid-area: keys;
+}
+
+.calculator.big .calc-key {
+  height: 66px;
+  font-size: 24px;
+}
+
+.calculator.big .calc-history-wrap {
+  grid-area: history;
+  border-top: none;
+  padding-top: 0;
+}
+
+.calculator.big .calc-history {
+  max-height: 60vh;
+}
+
+.calculator.big .calc-history button {
+  font-size: 15px;
+}
+
+/* every tile may be small: long content scrolls inside instead of stretching the grid */
+.tile.size-s .tile-body {
+  overflow: hidden auto;
+  max-height: 320px;
+}
+
+.tile.size-s.tall .tile-body {
+  max-height: 660px;
+}
+
+.tile.size-s .quick-row {
+  flex-wrap: wrap;
+}
+
+.tile.size-s .quick-sub {
+  white-space: normal;
+}
+
+.tile.size-s .clock-widget .hero-time {
+  font-size: 40px;
+}
+
+.tile.size-s .media-widget,
+.tile.size-s .now-bar {
+  flex-wrap: wrap;
+}
+
+/* the history appears beside the keys once there is one */
+.calculator.big:has(.calc-history-wrap) {
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr);
+  grid-template-areas:
+    'screen screen'
+    'toggle history'
+    'extra history'
+    'keys history';
+}
+
+.tool-card.tool-focus {
+  background: var(--menu-bg);
+  backdrop-filter: none;
+}

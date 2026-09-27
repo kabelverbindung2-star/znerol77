@@ -62,6 +62,7 @@ export interface Settings {
     seconds: boolean
     black: boolean
     videoId: string | null
+    span: 'one' | 'same' | 'each'
   }
   performance: { intervalSec: number }
   accent: string
@@ -143,4 +144,14 @@ export interface MediaItem {
   duration: number
   url: string
   thumb?: string
+}
+
+export interface Station {
+  id: string
+  name: string
+  genre: string
+  url: string
+  logo: string
+  info: string
+  homepage: string
 }

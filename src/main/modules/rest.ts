@@ -15,6 +15,8 @@ interface RestDeps {
   restoreAppearance: () => void
   onStart: () => void
   onStop: () => void
+  /** several monitors: one big picture across all of them, or one screen each */
+  span: 'one' | 'same' | 'each'
 }
 
 /** An app window that shows the rest screen itself instead of a new window (saves a whole renderer). */
@@ -81,6 +83,40 @@ export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; mini
   const displays = screen.getAllDisplays().sort((a, b) => (a.id === mainDisplay.id ? -1 : b.id === mainDisplay.id ? 1 : 0))
   const used = new Set<BrowserWindow>()
 
+  // one big rest screen stretched over all monitors (one video, not one per monitor)
+  if (d.span === 'one' && displays.length > 1) {
+    const union = displays.reduce(
+      (u, dsp) => {
+        const b = dsp.bounds
+        const x = Math.min(u.x, b.x)
+        const y = Math.min(u.y, b.y)
+        return { x, y, width: Math.max(u.x + u.width, b.x + b.width) - x, height: Math.max(u.y + u.height, b.y + b.height) - y }
+      },
+      { ...displays[0].bounds }
+    )
+    const host = live(main) ? main : null
+    if (host) {
+      used.add(host)
+      hosts.push({ win: host, bounds: host.isMaximized() ? host.getNormalBounds() : host.getBounds(), maximized: host.isMaximized() })
+      if (host.isMinimized()) host.restore()
+      if (host.isMaximized()) host.unmaximize()
+      if (!host.isVisible()) host.show()
+      try {
+        host.setTitleBarOverlay({ color: '#000000', symbolColor: '#000000', height: 44 })
+      } catch {
+        // frameless window
+      }
+      host.setAlwaysOnTop(true, 'screen-saver')
+      host.setBounds(union)
+      host.webContents.send('rest:show', 0)
+      host.focus()
+    }
+    for (const w of [main, second]) if (live(w) && !used.has(w) && w.isVisible()) w.hide()
+    globalShortcut.unregister('Escape')
+    globalShortcut.register('Escape', () => void stopRest())
+    return { powerMode, minimized }
+  }
+
   displays.forEach((display, i) => {
     const host = [main, second].find(
       (w): w is BrowserWindow => live(w) && !used.has(w) && screen.getDisplayMatching(w.getBounds()).id === display.id
@@ -97,7 +133,7 @@ export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; mini
         // frameless window: no Windows buttons to hide
       }
       cover(host, display)
-      host.webContents.send('rest:show', i)
+      host.webContents.send('rest:show', d.span === 'same' ? 100 + i : i)
       if (i === 0) host.focus()
       return
     }
@@ -119,7 +155,7 @@ export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; mini
     w.on('closed', () => {
       if (!stopping) stopRest().catch(() => undefined)
     })
-    d.load(w, { rest: String(i) })
+    d.load(w, { rest: String(d.span === 'same' ? 100 + i : i) })
     extra.push(w)
   })
 

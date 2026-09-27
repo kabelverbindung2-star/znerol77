@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { loadMedia } from './useMedia'
-import type { MediaItem } from './types'
+import type { MediaItem, Station } from './types'
 
 /**
  * One music player for the whole window, so it keeps playing while you switch tabs
@@ -8,6 +8,7 @@ import type { MediaItem } from './types'
  */
 interface State {
   list: MediaItem[]
+  source: 'calm' | 'radio'
   index: number
   playing: boolean
   volume: number
@@ -17,8 +18,9 @@ interface State {
 const VOLUME_KEY = 'znerol.calmMusic.volume'
 let audio: HTMLAudioElement | null = null
 let failures = 0
+let calmNeeded = false
 let order: number[] = []
-let state: State = { list: [], index: 0, playing: false, volume: readVolume(), error: null }
+let state: State = { list: [], source: 'calm', index: 0, playing: false, volume: readVolume(), error: null }
 const listeners = new Set<(s: State) => void>()
 
 function readVolume(): number {
@@ -45,14 +47,15 @@ function shuffle(n: number): number[] {
 }
 
 async function ensure(): Promise<HTMLAudioElement | null> {
-  if (state.list.length === 0) {
+  if (state.list.length === 0 || (state.source === 'calm' && calmNeeded)) {
+    calmNeeded = false
     const { music } = await loadMedia()
     if (music.length === 0) {
       emit({ error: 'Keine Musik geladen (keine Internetverbindung?)' })
       return null
     }
     order = shuffle(music.length)
-    emit({ list: music, index: order[0], error: null })
+    emit({ list: music, source: 'calm', index: order[0], error: null })
   }
   if (!audio) {
     audio = new Audio()
@@ -171,7 +174,7 @@ export async function playTrackById(id: string): Promise<void> {
 // ---------- one player for all windows ----------
 // The music plays in the main window. The second screen and the rest screens send their
 // button presses there, so there is never a second player running at the same time.
-export type MusicCommand = 'toggle' | 'next' | 'prev' | 'play' | 'pause' | 'track'
+export type MusicCommand = 'toggle' | 'next' | 'prev' | 'play' | 'pause' | 'track' | 'station'
 let owner = false
 
 export function setOwner(isOwner: boolean): void {
@@ -182,7 +185,15 @@ export function isOwner(): boolean {
   return owner
 }
 
-export function runCommand(cmd: MusicCommand, id?: string): void {
+export function runCommand(cmd: MusicCommand, id?: string, station?: Station, list?: Station[]): void {
+  if (cmd === 'station' && station) {
+    void playStation(station, list)
+    return
+  }
+  if (cmd === 'track' && id) {
+    void playCalmById(id)
+    return
+  }
   if (cmd === 'toggle') void toggle()
   else if (cmd === 'next') void next()
   else if (cmd === 'prev') void prev()
@@ -192,7 +203,47 @@ export function runCommand(cmd: MusicCommand, id?: string): void {
 }
 
 /** Use this from any window: plays here if this is the main window, otherwise asks the main window. */
-export function command(cmd: MusicCommand, id?: string): void {
-  if (owner) runCommand(cmd, id)
-  else window.znerol.music.command(cmd, id)
+export function command(cmd: MusicCommand, id?: string, station?: Station, list?: Station[]): void {
+  if (owner) runCommand(cmd, id, station, list)
+  else window.znerol.music.command(cmd, id, station ? { station, list } : undefined)
+}
+
+// ---------- radio ----------
+function stationItem(st: Station): MediaItem {
+  return {
+    id: `station:${st.id}`,
+    kind: 'music',
+    title: st.name,
+    artist: st.info || 'Radio',
+    license: '',
+    licenseUrl: '',
+    descriptionUrl: st.homepage,
+    duration: 0,
+    url: st.url,
+    thumb: st.logo || undefined
+  }
+}
+
+/** Play a radio station; next/previous then switch between the stations of `list`. */
+export async function playStation(st: Station, list: Station[] = [st]): Promise<void> {
+  const items = (list.some((x) => x.id === st.id) ? list : [st, ...list]).map(stationItem)
+  order = items.map((_, i) => i)
+  emit({ list: items, source: 'radio', error: null })
+  const i = items.findIndex((x) => x.id === `station:${st.id}`)
+  await playIndex(Math.max(0, i))
+  window.znerol.radio.played(st.id).catch(() => undefined)
+}
+
+/** Back to the calm music list (after radio). */
+async function toCalm(): Promise<void> {
+  if (state.source === 'radio') {
+    calmNeeded = true
+    emit({ list: [], source: 'calm' })
+  }
+  await ensure()
+}
+
+export async function playCalmById(id: string): Promise<void> {
+  await toCalm()
+  await playTrackById(id)
 }
