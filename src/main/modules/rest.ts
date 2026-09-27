@@ -84,7 +84,9 @@ export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; mini
     return w
   })
 
-  if (!globalShortcut.isRegistered('Escape')) globalShortcut.register('Escape', () => void stopRest())
+  // Esc ends rest mode (takes over the autoclicker's Esc; onStop gives it back)
+  globalShortcut.unregister('Escape')
+  globalShortcut.register('Escape', () => void stopRest())
   return { powerMode, minimized }
 }
 

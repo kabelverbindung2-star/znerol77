@@ -318,7 +318,8 @@ function wireIpc(): void {
   clickerEngine.setRunningListener((running) => {
     if (running) {
       if (!globalShortcut.isRegistered('Escape')) globalShortcut.register('Escape', () => clickerEngine.stop())
-    } else if (globalShortcut.isRegistered('Escape')) {
+    } else if (globalShortcut.isRegistered('Escape') && !isResting()) {
+      // rest mode also listens to Esc; leave it to rest mode while that runs
       globalShortcut.unregister('Escape')
     }
   })
@@ -435,6 +436,9 @@ function wireIpc(): void {
       appWindows,
       onStart: () => stopPerfLoop(),
       onStop: () => {
+        if (clickerEngine.getStatus().running && !globalShortcut.isRegistered('Escape')) {
+          globalShortcut.register('Escape', () => clickerEngine.stop())
+        }
         getSettings().then((s) => startPerfLoop(allWindows, s.performance.intervalSec * 1000))
       }
     })
