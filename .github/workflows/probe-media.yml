@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - scripts/probe-media.mjs
+      - src/main/modules/media-list.ts
   workflow_dispatch:
 jobs:
   probe:

@@ -1,81 +1,60 @@
-// Asks Wikimedia Commons which free nature videos and calm music exist (run in CI; the dev sandbox has no access).
+// Checks the hand-picked media list (src/main/modules/media-list.ts) against Wikimedia Commons
+// the same way the app does, and that every chosen file really downloads. Runs in CI.
+import { readFileSync } from 'fs'
+
 const API = 'https://commons.wikimedia.org/w/api.php'
-const UA = 'ZnerolMonitor/2.2 (https://github.com/kabelverbindung2-star/znerol77; media probe)'
+const UA = 'ZnerolMonitor/2.2 (https://github.com/kabelverbindung2-star/znerol77; media check)'
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function search(q, limit = 40) {
-  const url =
-    `${API}?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=${limit}` +
-    `&gsrsearch=${encodeURIComponent(q)}&prop=videoinfo&viprop=size%7Cmime%7Cextmetadata%7Cderivatives`
-  for (let i = 0; i < 4; i++) {
-    const r = await fetch(url, { headers: { 'User-Agent': UA } })
-    const text = await r.text()
-    try {
-      return Object.values(JSON.parse(text)?.query?.pages ?? {})
-    } catch {
-      await wait(5000 * (i + 1))
-    }
-  }
-  return []
+const src = readFileSync(new URL('../src/main/modules/media-list.ts', import.meta.url), 'utf-8')
+const lists = {}
+new Function('exp', src.replace(/export const (\w+) =/g, 'exp.$1 =').replace(/^\/\/.*$/gm, ''))(lists)
+
+function pickVideo(v) {
+  const d = v.derivatives ?? []
+  const hd = d.find((x) => x.transcodekey === '1080p.vp9.webm') ?? d.find((x) => x.transcodekey === '720p.vp9.webm')
+  if (hd?.src) return hd.src
+  return v.mime === 'video/webm' ? v.url : null
+}
+function pickAudio(v) {
+  if (/^audio\/(mpeg|ogg|opus|flac|wav|webm|x-flac)$/.test(v.mime ?? '') || v.mime === 'application/ogg') return v.url
+  const d = v.derivatives ?? []
+  return (d.find((x) => x.transcodekey === 'mp3') ?? d.find((x) => x.transcodekey === 'ogg'))?.src ?? null
 }
 
-const strip = (s) => String(s ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-const seen = new Set()
-
-async function probe(kind, queries, keep) {
-  console.log(`\n===== ${kind} =====`)
-  for (const q of queries) {
-    await wait(2500)
-    const pages = await search(q)
-    const rows = []
-    for (const p of pages) {
-      const v = p.videoinfo?.[0]
-      if (!v || seen.has(p.title)) continue
-      const derivs = (v.derivatives ?? []).map((x) => x.transcodekey || '').filter(Boolean)
-      const row = { title: p.title, dur: Math.round(v.duration ?? 0), w: v.width ?? 0, h: v.height ?? 0, mime: v.mime, lic: strip(v.extmetadata?.LicenseShortName?.value), derivs }
-      if (!keep(row)) continue
-      seen.add(p.title)
-      rows.push(row)
+async function check(name, titles, pick, minimum) {
+  let ok = 0
+  const missing = []
+  for (let i = 0; i < titles.length; i += 40) {
+    const batch = titles.slice(i, i + 40).map((t) => `File:${t}`)
+    const url = `${API}?action=query&format=json&prop=videoinfo&viprop=url%7Csize%7Cmime%7Cextmetadata%7Cderivatives&titles=${encodeURIComponent(batch.join('|'))}`
+    const data = await (await fetch(url, { headers: { 'User-Agent': UA } })).json()
+    const renamed = new Map((data.query.normalized ?? []).map((n) => [n.from, n.to]))
+    const pages = new Map(Object.values(data.query.pages).map((p) => [p.title, p]))
+    for (const asked of batch) {
+      const p = pages.get(renamed.get(asked) ?? asked)
+      const v = p?.videoinfo?.[0]
+      const file = v && pick(v)
+      if (!file) {
+        missing.push(`${asked} (${p?.missing !== undefined ? 'not on Commons' : 'no playable version'})`)
+        continue
+      }
+      await wait(300)
+      const head = await fetch(file, { method: 'HEAD', headers: { 'User-Agent': UA } })
+      const mb = (Number(head.headers.get('content-length')) / 1e6).toFixed(1)
+      if (!head.ok) {
+        missing.push(`${asked} (HTTP ${head.status})`)
+        continue
+      }
+      ok++
+      console.log(`ok  ${Math.round(v.duration)}s ${mb} MB ${head.headers.get('content-type')} [${(v.extmetadata?.LicenseShortName?.value ?? '').replace(/<[^>]*>/g, '')}] ${asked.slice(5, 90)}`)
     }
-    console.log(`\n--- ${q}: ${rows.length}`)
-    for (const r of rows) console.log(`${r.dur}s|${r.w}x${r.h}|${r.mime}|${r.lic}|${r.derivs.join(',')}|${r.title}`)
+    await wait(1000)
   }
+  console.log(`\n${name}: ${ok} of ${titles.length} playable`)
+  for (const m of missing) console.log('MISSING', m)
+  if (ok < minimum) throw new Error(`${name}: only ${ok}, need ${minimum}`)
 }
 
-const bigVideo = (r) => r.dur >= 20 && r.w >= 1600 && r.w / Math.max(1, r.h) >= 1.5 && (r.derivs.includes('1080p.vp9.webm') || r.mime === 'video/webm')
-await probe('video', [
-  'waterfall 4K filetype:video',
-  'waterfall filetype:video filew:>1900',
-  'river timelapse filetype:video',
-  'clouds timelapse filetype:video filew:>1900',
-  'sea waves beach filetype:video filew:>1900',
-  'drone mountains filetype:video filew:>1900',
-  'alps filetype:video filew:>1900',
-  'glacier filetype:video filew:>1900',
-  'sunset timelapse filetype:video filew:>1900',
-  'night sky stars timelapse filetype:video filew:>1900',
-  'aurora timelapse filetype:video filew:>1900',
-  'ISS earth 4K filetype:video',
-  'coral reef filetype:video filew:>1900',
-  'desert dunes filetype:video filew:>1900',
-  'fjord Norway filetype:video filew:>1900',
-  'Iceland landscape filetype:video filew:>1900'
-], bigVideo)
-
-const music = (r) => /^(audio|application\/ogg)/.test(r.mime ?? '') && r.dur >= 90 && r.dur <= 1500
-await probe('audio', [
-  'Musopen piano filetype:audio',
-  'Chopin nocturne filetype:audio',
-  'Satie Gymnopédie filetype:audio',
-  'Debussy filetype:audio',
-  'Clair de lune filetype:audio',
-  'Bach prelude filetype:audio',
-  'Beethoven moonlight sonata filetype:audio',
-  'Schubert impromptu filetype:audio',
-  'Mozart piano sonata adagio filetype:audio',
-  'Kevin MacLeod filetype:audio',
-  'ambient calm filetype:audio',
-  'lute guitar filetype:audio',
-  'Grieg Morning Mood filetype:audio',
-  'Pachelbel canon filetype:audio'
-], music)
+await check('videos', lists.NATURE_VIDEOS, pickVideo, 20)
+await check('music', lists.CALM_MUSIC, pickAudio, 50)
