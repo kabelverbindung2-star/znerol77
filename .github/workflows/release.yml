@@ -8,6 +8,8 @@ on:
       - claude/zenrolmonitor-zugriff-ss3wo0
     paths-ignore:
       - '**.md'
+      - 'scripts/probe-media.mjs'
+      - '.github/workflows/probe-media.yml'
   workflow_dispatch:
 
 permissions:
