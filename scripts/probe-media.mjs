@@ -39,8 +39,14 @@ async function check(name, titles, pick, minimum) {
         missing.push(`${asked} (${p?.missing !== undefined ? 'not on Commons' : 'no playable version'})`)
         continue
       }
-      await wait(300)
-      const head = await fetch(file, { method: 'HEAD', headers: { 'User-Agent': UA } })
+      let head
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await wait(2500)
+        head = await fetch(file, { method: 'HEAD', headers: { 'User-Agent': UA } })
+        if (head.status !== 429) break
+        // rate limited (shared CI address): wait as long as asked, then try again
+        await wait(1000 * Math.max(10, Number(head.headers.get('retry-after')) || 0) * (attempt + 1))
+      }
       const mb = (Number(head.headers.get('content-length')) / 1e6).toFixed(1)
       if (!head.ok) {
         missing.push(`${asked} (HTTP ${head.status})`)
