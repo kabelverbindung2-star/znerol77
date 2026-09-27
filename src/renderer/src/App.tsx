@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect, useState, type CSSProperties } from 'react'
 import Background from './components/Background'
 import RestScreen from './components/RestScreen'
 import VideoBackground from './components/VideoBackground'
+import VideoPicker from './components/VideoPicker'
+import type { MenuItem } from './components/ui/ContextMenu'
 import * as calmMusic from './lib/calmMusic'
 import WindowControls from './components/WindowControls'
 import { useContextMenu } from './components/ui/ContextMenu'
@@ -151,6 +153,40 @@ function MainApp(): JSX.Element {
 
   const needsWindows = !isWindows && ['autostart', 'autoclicker', 'audio'].includes(tab)
 
+  const [videoPicker, setVideoPicker] = useState(false)
+  const setBackground = (bg: typeof background): void => {
+    update({ appearance: { style: 'glass', background: bg } })
+  }
+  const backgroundItems = (): MenuItem[] => [
+    { label: 'Naturvideos', active: glass && background === 'video', onClick: () => setBackground('video') },
+    { label: 'Wechselnde Bilder', active: glass && background === 'photos', onClick: () => setBackground('photos') },
+    { label: 'Festes Bild', active: glass && background === 'fixed', onClick: () => setBackground('fixed') },
+    { label: 'Kein Bild', active: glass && background === 'plain', onClick: () => setBackground('plain') },
+    { label: 'Durchsichtig', active: transparent, onClick: () => setBackground('transparent') },
+    { label: '', separator: true },
+    { label: 'Video auswählen …', onClick: () => setVideoPicker(true) },
+    ...(showPicture && !SECOND ? [{ label: 'Bild auswählen …', onClick: () => setPanelOpen(true) }] : []),
+    { label: '', separator: true },
+    { label: 'Ruhemodus starten', onClick: startRest }
+  ]
+  // right click on free space (not on a tile, card or control) = background menu
+  const onBackgroundMenu = (e: React.MouseEvent): void => {
+    const t = e.target as HTMLElement
+    if (t.closest('.tile, .glass, .card, input, textarea, select, button, a, .ctx-menu, .modal')) return
+    ctx.open(e, backgroundItems())
+  }
+  const videoPickerEl = videoPicker && (
+    <VideoPicker
+      selected={settings.rest.videoId}
+      onSelect={(id) => {
+        update({ rest: { videoId: id } })
+        if (!videoBg) setBackground('video')
+        setVideoPicker(false)
+      }}
+      onClose={() => setVideoPicker(false)}
+    />
+  )
+
   const navMenu = (e: React.MouseEvent): void =>
     ctx.open(e, [
       { label: 'Leiste oben', active: nav === 'top', onClick: () => update({ appearance: { nav: 'top' } }) },
@@ -161,13 +197,13 @@ function MainApp(): JSX.Element {
       { label: 'Bildschirm ausschalten', onClick: () => window.znerol.display.off() }
     ])
 
-  if (resting !== null) return <RestScreen index={resting} />
+  if (resting !== null) return <RestScreen index={resting} withMusic={!SECOND} />
 
   if (SECOND) {
     return (
-      <div className={cls} style={style}>
+      <div className={cls} style={style} onContextMenu={onBackgroundMenu}>
         {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
-      {videoBg && <VideoBackground dim={settings.wallpaper.dim} />}
+      {videoBg && <VideoBackground dim={settings.wallpaper.dim} pinnedId={settings.rest.videoId} />}
         <div className="drag-strip" />
         <main className="content content-uebersicht">
           <Uebersicht
@@ -186,14 +222,15 @@ function MainApp(): JSX.Element {
           />
         </main>
         {ctx.menu}
+        {videoPickerEl}
       </div>
     )
   }
 
   return (
-    <div className={cls} style={style}>
+    <div className={cls} style={style} onContextMenu={onBackgroundMenu}>
       {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
-      {videoBg && <VideoBackground dim={settings.wallpaper.dim} />}
+      {videoBg && <VideoBackground dim={settings.wallpaper.dim} pinnedId={settings.rest.videoId} />}
 
       <div className="drag-strip" />
       {CUSTOM_FRAME && <WindowControls />}
@@ -238,12 +275,15 @@ function MainApp(): JSX.Element {
             <NavIcon name="displayoff" />
             <span>Bildschirm aus</span>
           </button>
-          {showPicture && (
-            <button type="button" className={panelOpen ? 'active' : ''} aria-pressed={panelOpen} title="Hintergrund" onClick={() => setPanelOpen((v) => !v)}>
-              <NavIcon name="bild" />
-              <span>Hintergrund</span>
-            </button>
-          )}
+          <button
+            type="button"
+            className={panelOpen ? 'active' : ''}
+            title="Hintergrund: Naturvideos, Bilder … (auch Rechtsklick auf freie Fläche)"
+            onClick={(e) => ctx.open(e, backgroundItems())}
+          >
+            <NavIcon name="bild" />
+            <span>Hintergrund</span>
+          </button>
           <button
             type="button"
             className={tab === 'einstellungen' ? 'active' : ''}
@@ -302,6 +342,7 @@ function MainApp(): JSX.Element {
 
       {showPicture && <WallpaperInfo wallpaper={walls.current} />}
       {ctx.menu}
+      {videoPickerEl}
     </div>
   )
 }

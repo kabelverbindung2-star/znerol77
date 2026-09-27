@@ -27,7 +27,7 @@ async function check(name, titles, pick, minimum) {
   const missing = []
   for (let i = 0; i < titles.length; i += 40) {
     const batch = titles.slice(i, i + 40).map((t) => `File:${t}`)
-    const url = `${API}?action=query&format=json&prop=videoinfo&viprop=url%7Csize%7Cmime%7Cextmetadata%7Cderivatives&titles=${encodeURIComponent(batch.join('|'))}`
+    const url = `${API}?action=query&format=json&prop=videoinfo&viprop=url%7Csize%7Cmime%7Cextmetadata%7Cderivatives&viurlwidth=320&titles=${encodeURIComponent(batch.join('|'))}`
     const data = await (await fetch(url, { headers: { 'User-Agent': UA } })).json()
     const renamed = new Map((data.query.normalized ?? []).map((n) => [n.from, n.to]))
     const pages = new Map(Object.values(data.query.pages).map((p) => [p.title, p]))
@@ -53,6 +53,7 @@ async function check(name, titles, pick, minimum) {
         continue
       }
       ok++
+      if (name === 'videos' && !v.thumburl) console.log('   (no preview picture)')
       console.log(`ok  ${Math.round(v.duration)}s ${mb} MB ${head.headers.get('content-type')} [${(v.extmetadata?.LicenseShortName?.value ?? '').replace(/<[^>]*>/g, '')}] ${asked.slice(5, 90)}`)
     }
     await wait(1000)

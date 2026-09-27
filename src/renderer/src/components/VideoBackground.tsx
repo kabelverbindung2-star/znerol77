@@ -4,7 +4,7 @@ import { useMedia } from '../lib/useMedia'
 import { sceneImage } from './Background'
 
 /** Nature videos behind the app; they stop while the window is minimised or covered. */
-export default function VideoBackground({ dim }: { dim: number }): JSX.Element {
+export default function VideoBackground({ dim, pinnedId = null }: { dim: number; pinnedId?: string | null }): JSX.Element {
   const media = useMedia()
   const [hidden, setHidden] = useState(document.hidden)
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function VideoBackground({ dim }: { dim: number }): JSX.Element {
       <div className="bg-layer">
         <img src={sceneImage('builtin:Bergsee')} alt="" draggable={false} />
       </div>
-      {media.videos.length > 0 && <NatureVideo videos={media.videos} paused={hidden} />}
+      {media.videos.length > 0 && <NatureVideo videos={media.videos} paused={hidden} pinnedId={pinnedId} />}
       <div className="bg-dim" style={{ opacity: dim / 100 }} />
     </div>
   )

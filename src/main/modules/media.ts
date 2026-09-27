@@ -19,12 +19,13 @@ export interface MediaItem {
   descriptionUrl: string
   duration: number
   url: string
+  thumb?: string // small still picture (videos)
 }
 
 const API = 'https://commons.wikimedia.org/w/api.php'
 const USER_AGENT = 'ZnerolMonitor/2.2 (https://github.com/kabelverbindung2-star/znerol77)'
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
-const CACHE_VERSION = 1
+const CACHE_VERSION = 2
 
 const cacheFile = (): string => path.join(app.getPath('userData'), 'media.json')
 
@@ -74,7 +75,7 @@ async function resolve(titles: string[], kind: MediaItem['kind']): Promise<Media
     const batch = titles.slice(i, i + 40).map((t) => `File:${t}`)
     const url =
       `${API}?action=query&format=json&prop=videoinfo` +
-      '&viprop=url%7Csize%7Cmime%7Cextmetadata%7Cderivatives' +
+      '&viprop=url%7Csize%7Cmime%7Cextmetadata%7Cderivatives&viurlwidth=320' +
       `&titles=${encodeURIComponent(batch.join('|'))}`
     const res = await net.fetch(url, { headers: { 'User-Agent': USER_AGENT } })
     if (!res.ok) throw new Error(`Commons ${res.status}`)
@@ -109,7 +110,8 @@ function toItem(page: any, kind: MediaItem['kind']): MediaItem | null {
     licenseUrl: strip(meta.LicenseUrl?.value),
     descriptionUrl: v.descriptionurl ?? `https://commons.wikimedia.org/wiki/${encodeURIComponent(page.title)}`,
     duration: Math.round(v.duration ?? 0),
-    url: src
+    url: src,
+    thumb: kind === 'video' && typeof v.thumburl === 'string' ? v.thumburl : undefined
   }
 }
 

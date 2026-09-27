@@ -31,6 +31,7 @@ export interface WidgetConfig {
   id: string
   type: string
   size: 's' | 'm' | 'l'
+  tall?: boolean
 }
 
 export interface Settings {
@@ -54,7 +55,14 @@ export interface Settings {
   weather: { name: string; lat: number; lon: number } | null
   dashboard: { widgets: WidgetConfig[]; widgets2: WidgetConfig[] }
   screens: { dual: boolean; displayId: number | null }
-  rest: { video: boolean; music: boolean }
+  rest: {
+    video: boolean
+    music: boolean
+    clock: 'corner' | 'center' | 'off'
+    seconds: boolean
+    black: boolean
+    videoId: string | null
+  }
   performance: { intervalSec: number }
   accent: string
 }
@@ -134,4 +142,5 @@ export interface MediaItem {
   descriptionUrl: string
   duration: number
   url: string
+  thumb?: string
 }

@@ -6,6 +6,7 @@ export interface WidgetConfig {
   id: string
   type: string
   size: 's' | 'm' | 'l' // 1, 2 or 4 grid columns
+  tall?: boolean // two rows high
 }
 
 export interface Settings {
@@ -49,6 +50,10 @@ export interface Settings {
   rest: {
     video: boolean // moving nature videos instead of a still picture
     music: boolean // start the calm music with rest mode
+    clock: 'corner' | 'center' | 'off'
+    seconds: boolean
+    black: boolean // plain black screen, the quietest option
+    videoId: string | null // one chosen film; null = change now and then
   }
   accent: string
 }
@@ -84,7 +89,7 @@ const DEFAULTS: Settings = {
   weather: null,
   dashboard: { widgets: DEFAULT_WIDGETS, widgets2: DEFAULT_WIDGETS_2 },
   screens: { dual: false, displayId: null },
-  rest: { video: true, music: false },
+  rest: { video: true, music: false, clock: 'corner', seconds: false, black: false, videoId: null },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }

@@ -78,7 +78,9 @@ export default function Uebersicht(props: Props): JSX.Element {
           }
         : { label: 'Auf Hauptbildschirm verschieben', onClick: () => moveToOther(w) },
       { label: '', separator: true },
-      ...def.sizes.map((s) => ({ label: SIZE_LABEL[s], active: s === size, onClick: () => setSize(w.id, s) })),
+      ...def.sizes.map((s) => ({ label: `Breite: ${SIZE_LABEL[s]}`, active: s === size, onClick: () => setSize(w.id, s) })),
+      { label: 'Höhe: normal', active: !w.tall, onClick: () => setTall(w.id, false) },
+      { label: 'Höhe: doppelt', active: !!w.tall, onClick: () => setTall(w.id, true) },
       { label: '', separator: true },
       { label: 'Kacheln bearbeiten', onClick: () => setEditing(true) },
       { label: `${def.name} entfernen`, danger: true, onClick: () => remove(w.id) }
@@ -143,6 +145,7 @@ export default function Uebersicht(props: Props): JSX.Element {
   }
 
   const setSize = (id: string, size: Size): void => save(widgets.map((w) => (w.id === id ? { ...w, size } : w)))
+  const setTall = (id: string, tall: boolean): void => save(widgets.map((w) => (w.id === id ? { ...w, tall } : w)))
   const remove = (id: string): void => save(widgets.filter((w) => w.id !== id))
   const add = (type: string): void => {
     const def = WIDGETS[type]
@@ -194,7 +197,7 @@ export default function Uebersicht(props: Props): JSX.Element {
           return (
             <div
               key={w.id}
-              className={`tile size-${size} tile-${w.type} ${w.type === 'clock' ? 'bare' : 'glass'} ${dragId === w.id ? 'dragging' : ''}`}
+              className={`tile size-${size} ${w.tall ? 'tall' : ''} tile-${w.type} ${w.type === 'clock' ? 'bare' : 'glass'} ${dragId === w.id ? 'dragging' : ''}`}
               draggable={editing}
               onDragStart={(e) => {
                 setDragId(w.id)
@@ -220,12 +223,20 @@ export default function Uebersicht(props: Props): JSX.Element {
               {editing && (
                 <div className="tile-edit">
                   <span className="tile-name">{def.name}</span>
-                  <div className="tile-sizes">
+                  <div className="tile-sizes" title="Breite">
                     {def.sizes.map((s) => (
                       <button key={s} type="button" className={s === size ? 'active' : ''} onClick={() => setSize(w.id, s)}>
                         {SIZE_LABEL[s]}
                       </button>
                     ))}
+                  </div>
+                  <div className="tile-sizes" title="Höhe">
+                    <button type="button" className={!w.tall ? 'active' : ''} onClick={() => setTall(w.id, false)}>
+                      Normal
+                    </button>
+                    <button type="button" className={w.tall ? 'active' : ''} onClick={() => setTall(w.id, true)}>
+                      Hoch
+                    </button>
                   </div>
                   <button type="button" className="tile-remove" aria-label={`${def.name} entfernen`} onClick={() => remove(w.id)}>
                     <NavIcon name="close" size={14} />

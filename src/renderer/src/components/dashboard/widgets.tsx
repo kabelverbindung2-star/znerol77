@@ -4,7 +4,7 @@ import Switch from '../ui/Switch'
 import InfoTip from '../ui/InfoTip'
 import WeatherChip from '../WeatherChip'
 import CalmMusic from '../CalmMusic'
-import { Calculator, Countdown, Stopwatch } from '../tools/Tools'
+import { Calculator, Converter, Countdown, Notes, RandomTool, Stopwatch } from '../tools/Tools'
 import { usePoll } from '../../lib/usePoll'
 import { BoostExplainer, useBoost } from '../../lib/boost'
 import type { PerfHistory } from '../../lib/usePerf'
@@ -462,6 +462,39 @@ export const WIDGETS: Record<string, WidgetDef> = {
       <>
         <Head title="Timer" />
         <Countdown compact />
+      </>
+    )
+  },
+  notes: {
+    name: 'Notizen',
+    desc: 'Schnell etwas aufschreiben, wird gespeichert',
+    sizes: ['s', 'm', 'l'],
+    render: () => (
+      <>
+        <Head title="Notizen" />
+        <Notes compact />
+      </>
+    )
+  },
+  converter: {
+    name: 'Umrechner',
+    desc: 'Länge, Gewicht, Temperatur, Daten …',
+    sizes: ['m'],
+    render: () => (
+      <>
+        <Head title="Umrechner" />
+        <Converter />
+      </>
+    )
+  },
+  random: {
+    name: 'Zufall',
+    desc: 'Würfel, Münze, Zufallszahl',
+    sizes: ['m'],
+    render: () => (
+      <>
+        <Head title="Zufall" />
+        <RandomTool />
       </>
     )
   },

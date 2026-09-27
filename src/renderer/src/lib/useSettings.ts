@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weather: null,
   dashboard: { widgets: DEFAULT_WIDGETS, widgets2: [] },
   screens: { dual: false, displayId: null },
-  rest: { video: true, music: false },
+  rest: { video: true, music: false, clock: 'corner', seconds: false, black: false, videoId: null },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }

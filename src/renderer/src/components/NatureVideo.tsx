@@ -12,14 +12,22 @@ export default function NatureVideo({
   videos,
   offset = 0,
   paused = false,
+  pinnedId = null,
   onCurrent
 }: {
   videos: MediaItem[]
   offset?: number
   paused?: boolean
+  /** one chosen film that stays (loops); null = change now and then */
+  pinnedId?: string | null
   onCurrent?: (v: MediaItem | null) => void
 }): JSX.Element | null {
+  const pinnedIndex = pinnedId ? videos.findIndex((v) => v.id === pinnedId) : -1
   const [index, setIndex] = useState(() => (videos.length ? (offset + Math.floor(Math.random() * videos.length)) % videos.length : 0))
+  // a newly chosen film takes over at once
+  useEffect(() => {
+    if (pinnedIndex >= 0) setIndex(pinnedIndex)
+  }, [pinnedIndex])
   const [shown, setShown] = useState<number | null>(null) // becomes visible once it really plays
   const failures = useRef(0)
   const ref = useRef<HTMLVideoElement>(null)
@@ -31,11 +39,11 @@ export default function NatureVideo({
 
   // next film after a while
   useEffect(() => {
-    if (!current || videos.length < 2) return
+    if (!current || videos.length < 2 || pinnedIndex >= 0) return
     const ms = Math.min(MAX_MS, Math.max(MIN_MS, current.duration * 1000))
     const t = setTimeout(() => setIndex((i) => (i + 1) % videos.length), ms)
     return () => clearTimeout(t)
-  }, [current, videos.length])
+  }, [current, videos.length, pinnedIndex])
 
   useEffect(() => {
     const v = ref.current
