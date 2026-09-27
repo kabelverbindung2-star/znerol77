@@ -1,4 +1,4 @@
-import { BrowserWindow, globalShortcut, powerSaveBlocker, screen } from 'electron'
+import { BrowserWindow, globalShortcut, powerSaveBlocker, screen, type Display, type Rectangle } from 'electron'
 import { winHelper } from './winhelper'
 import { isWindows } from './platform'
 import { withTimeout } from './perf'
@@ -9,30 +9,51 @@ const BEST_EFFICIENCY = '961cc777-2547-4f9d-8174-7d86181b8a7a'
 interface RestDeps {
   preload: string
   load: (w: BrowserWindow, query: Record<string, string>) => void
-  /** app windows to hide while resting (main window, second screen) */
-  appWindows: () => BrowserWindow[]
+  mainWindow: () => BrowserWindow | null
+  secondWindow: () => BrowserWindow | null
+  /** give the main window its normal title bar colours back */
+  restoreAppearance: () => void
   onStart: () => void
   onStop: () => void
 }
 
-let windows: BrowserWindow[] = []
+/** An app window that shows the rest screen itself instead of a new window (saves a whole renderer). */
+interface Host {
+  win: BrowserWindow
+  bounds: Rectangle
+  maximized: boolean
+}
+
+let active = false
+let extra: BrowserWindow[] = [] // small rest-only windows for monitors without an app window
+let hosts: Host[] = []
 let blocker: number | null = null
 let previousPowerMode: string | null = null
-let hidden: BrowserWindow[] = []
 let deps: RestDeps | null = null
 let stopping = false
 
 export function isResting(): boolean {
-  return windows.length > 0
+  return active
+}
+
+function live(w: BrowserWindow | null): w is BrowserWindow {
+  return !!w && !w.isDestroyed()
+}
+
+function cover(win: BrowserWindow, display: Display): void {
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setBounds(display.bounds)
+  win.setFullScreen(true)
 }
 
 /**
- * Rest mode: every monitor shows a calm clock screen (one update per second, no animation),
+ * Rest mode: every monitor shows a calm screen (clock, nature video or still picture),
  * the displays stay on, other apps are minimised and Windows switches to its most
  * efficient power mode. Everything is restored when it ends.
  */
 export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; minimized: number }> {
-  if (isResting()) return { powerMode: previousPowerMode !== null, minimized: 0 }
+  if (active) return { powerMode: previousPowerMode !== null, minimized: 0 }
+  active = true
   deps = d
   stopping = false
   let minimized = 0
@@ -50,15 +71,36 @@ export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; mini
     }
   }
 
-  hidden = d.appWindows().filter((w) => !w.isDestroyed() && w.isVisible())
-  for (const w of hidden) w.hide()
-
   blocker = powerSaveBlocker.start('prevent-display-sleep')
   d.onStart()
 
-  const cursor = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  const displays = screen.getAllDisplays().sort((a, b) => (a.id === cursor.id ? -1 : b.id === cursor.id ? 1 : 0))
-  windows = displays.map((display, i) => {
+  // the monitor with the main window first: it gets the hint and the keyboard focus
+  const main = d.mainWindow()
+  const second = d.secondWindow()
+  const mainDisplay = live(main) ? screen.getDisplayMatching(main.getBounds()) : screen.getPrimaryDisplay()
+  const displays = screen.getAllDisplays().sort((a, b) => (a.id === mainDisplay.id ? -1 : b.id === mainDisplay.id ? 1 : 0))
+  const used = new Set<BrowserWindow>()
+
+  displays.forEach((display, i) => {
+    const host = [main, second].find(
+      (w): w is BrowserWindow => live(w) && !used.has(w) && screen.getDisplayMatching(w.getBounds()).id === display.id
+    )
+    if (host) {
+      // an app window already sits on this monitor: it shows the rest screen itself
+      used.add(host)
+      hosts.push({ win: host, bounds: host.isMaximized() ? host.getNormalBounds() : host.getBounds(), maximized: host.isMaximized() })
+      if (host.isMinimized()) host.restore()
+      if (!host.isVisible()) host.show()
+      try {
+        host.setTitleBarOverlay({ color: '#000000', symbolColor: '#000000', height: 44 })
+      } catch {
+        // frameless window: no Windows buttons to hide
+      }
+      cover(host, display)
+      host.webContents.send('rest:show', i)
+      if (i === 0) host.focus()
+      return
+    }
     const w = new BrowserWindow({
       ...display.bounds,
       frame: false,
@@ -66,23 +108,23 @@ export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; mini
       skipTaskbar: true,
       resizable: false,
       movable: false,
-      alwaysOnTop: true,
       backgroundColor: '#000000',
       webPreferences: { preload: d.preload, sandbox: false }
     })
-    w.setAlwaysOnTop(true, 'screen-saver')
     w.once('ready-to-show', () => {
-      w.setBounds(display.bounds)
       if (i === 0) w.show()
       else w.showInactive()
-      w.setFullScreen(true)
+      cover(w, display)
     })
     w.on('closed', () => {
       if (!stopping) stopRest().catch(() => undefined)
     })
     d.load(w, { rest: String(i) })
-    return w
+    extra.push(w)
   })
+
+  // app windows that did not become a rest screen stay out of sight meanwhile
+  for (const w of [main, second]) if (live(w) && !used.has(w) && w.isVisible()) w.hide()
 
   // Esc ends rest mode (takes over the autoclicker's Esc; onStop gives it back)
   globalShortcut.unregister('Escape')
@@ -91,17 +133,28 @@ export async function startRest(d: RestDeps): Promise<{ powerMode: boolean; mini
 }
 
 export async function stopRest(): Promise<void> {
-  if (!isResting() || stopping) return
+  if (!active || stopping) return
   stopping = true
-  const toClose = windows
-  windows = []
+  const toClose = extra
+  extra = []
   for (const w of toClose) if (!w.isDestroyed()) w.close()
+
+  for (const h of hosts) {
+    if (h.win.isDestroyed()) continue
+    h.win.webContents.send('rest:hide')
+    h.win.setAlwaysOnTop(false)
+    h.win.setFullScreen(false)
+    h.win.setBounds(h.bounds)
+    if (h.maximized) h.win.maximize()
+  }
+  hosts = []
+  for (const w of [deps?.mainWindow() ?? null, deps?.secondWindow() ?? null]) if (live(w) && !w.isVisible()) w.showInactive()
+  deps?.restoreAppearance()
+
   if (globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape')
   if (blocker !== null && powerSaveBlocker.isStarted(blocker)) powerSaveBlocker.stop(blocker)
   blocker = null
-
-  for (const w of hidden) if (!w.isDestroyed()) w.show()
-  hidden = []
+  active = false
   deps?.onStop()
 
   if (isWindows) {
@@ -109,6 +162,8 @@ export async function stopRest(): Promise<void> {
     previousPowerMode = null
     await withTimeout(winHelper.request('restoreMinimized', {}, 8000), 8000, null)
   }
+  const main = deps?.mainWindow() ?? null
+  if (live(main)) main.focus()
   stopping = false
 }
 

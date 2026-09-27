@@ -39,7 +39,7 @@ type TabId = (typeof TABS)[number]['id'] | 'einstellungen'
 
 // how this window was opened (see loadPage in the main process)
 const params = new URLSearchParams(window.location.search)
-const REST = params.get('rest')
+const REST = params.get('rest') // (older builds loaded the rest screen through this page)
 const SECOND = params.get('screen') === '2'
 const CUSTOM_FRAME = params.get('frame') === 'custom'
 const START_TAB = (params.get('tab') as TabId | null) ?? 'uebersicht'
@@ -72,6 +72,16 @@ function MainApp(): JSX.Element {
   const { settings, update } = useSettings()
   const ringing = useTimerAlarm()
   const [restNote, setRestNote] = useState<string | null>(null)
+  // rest mode: this window itself becomes the rest screen (the app parts are unmounted meanwhile)
+  const [resting, setResting] = useState<number | null>(null)
+  useEffect(() => {
+    const offShow = window.znerol.rest.onShow((i) => setResting(i))
+    const offHide = window.znerol.rest.onHide(() => setResting(null))
+    return () => {
+      offShow()
+      offHide()
+    }
+  }, [])
   const startRest = (): void => {
     setRestNote(null)
     if (settings.rest.music) calmMusic.play().catch(() => undefined)
@@ -150,6 +160,8 @@ function MainApp(): JSX.Element {
       { label: 'Ruhemodus starten', onClick: startRest },
       { label: 'Bildschirm ausschalten', onClick: () => window.znerol.display.off() }
     ])
+
+  if (resting !== null) return <RestScreen index={resting} />
 
   if (SECOND) {
     return (

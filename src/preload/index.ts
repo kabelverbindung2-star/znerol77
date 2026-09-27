@@ -120,7 +120,9 @@ const api = {
   },
   rest: {
     start: (): Promise<{ powerMode: boolean; minimized: number }> => ipcRenderer.invoke('rest:start'),
-    stop: () => ipcRenderer.invoke('rest:stop')
+    stop: () => ipcRenderer.invoke('rest:stop'),
+    onShow: (cb: (index: number) => void) => subscribe('rest:show', cb),
+    onHide: (cb: () => void) => subscribe('rest:hide', cb)
   },
   display: {
     off: () => ipcRenderer.invoke('display:off')

@@ -44,6 +44,18 @@ export default function NatureVideo({
     else v.play().catch(() => undefined)
   }, [paused, index])
 
+  // hand the decoder and its buffers back right away when a film ends or the screen closes
+  // (otherwise Chromium keeps them until the next garbage collection)
+  useEffect(() => {
+    const v = ref.current
+    return () => {
+      if (!v) return
+      v.pause()
+      v.removeAttribute('src')
+      v.load()
+    }
+  }, [current?.id])
+
   if (!current) return null
   return (
     <video

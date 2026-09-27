@@ -64,7 +64,7 @@ let boostActive = false
 
 registerWallpaperScheme()
 
-function loadPage(win: BrowserWindow, page: 'index' | 'overlay', query: Record<string, string> = {}): void {
+function loadPage(win: BrowserWindow, page: 'index' | 'overlay' | 'rest', query: Record<string, string> = {}): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     const qs = new URLSearchParams(query).toString()
     win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${page}.html${qs ? `?${qs}` : ''}`)
@@ -167,7 +167,8 @@ let secondTransparent = false
 function syncSecondScreen(settings: Settings, recreate = false): void {
   const displays = screen.getAllDisplays()
   const main = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null
-  if (!settings.screens.dual || displays.length < 2 || !main || isResting()) {
+  if (isResting()) return
+  if (!settings.screens.dual || displays.length < 2 || !main) {
     if (secondWindow && !secondWindow.isDestroyed()) secondWindow.destroy()
     secondWindow = null
     return
@@ -202,10 +203,6 @@ function syncSecondScreen(settings: Settings, recreate = false): void {
   })
   loadPage(w, 'index', { screen: '2', ...(transparent ? { frame: 'custom' } : {}) })
   secondWindow = w
-}
-
-function appWindows(): BrowserWindow[] {
-  return [mainWindow, secondWindow].filter((w): w is BrowserWindow => !!w && !w.isDestroyed())
 }
 
 function overlay(): Promise<BrowserWindow> {
@@ -432,8 +429,12 @@ function wireIpc(): void {
   ipcMain.handle('rest:start', () =>
     startRest({
       preload: PRELOAD,
-      load: (w, query) => loadPage(w, 'index', query),
-      appWindows,
+      load: (w, query) => loadPage(w, 'rest', query),
+      mainWindow: () => mainWindow,
+      secondWindow: () => secondWindow,
+      restoreAppearance: () => {
+        getSettings().then(applyAppearance)
+      },
       onStart: () => stopPerfLoop(),
       onStop: () => {
         if (clickerEngine.getStatus().running && !globalShortcut.isRegistered('Escape')) {
@@ -503,5 +504,6 @@ app.on('will-quit', () => {
   clickerEngine.dispose()
   winHelper.dispose()
 })
+
 
 
