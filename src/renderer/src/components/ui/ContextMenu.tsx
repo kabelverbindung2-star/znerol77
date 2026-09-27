@@ -21,6 +21,12 @@ export function useContextMenu(): { open: (e: React.MouseEvent, items: MenuItem[
   const open = useCallback((e: React.MouseEvent, items: MenuItem[]) => {
     e.preventDefault()
     e.stopPropagation()
+    // opened by a button (click or keyboard): show it right below the button
+    if (e.type === 'click' && e.currentTarget instanceof HTMLElement) {
+      const r = e.currentTarget.getBoundingClientRect()
+      setState({ x: r.left, y: r.bottom + 6, items })
+      return
+    }
     setState({ x: e.clientX, y: e.clientY, items })
   }, [])
   const close = useCallback(() => setState(null), [])

@@ -129,6 +129,11 @@ const api = {
   },
   media: {
     list: (force = false) => ipcRenderer.invoke('media:list', force)
+  },
+  music: {
+    /** sent from the second screen / rest screens to the main window, which plays the music */
+    command: (cmd: string, id?: string) => ipcRenderer.invoke('music:command', cmd, id),
+    onCommand: (cb: (c: { cmd: string; id?: string }) => void) => subscribe('music:command', cb)
   }
 }
 

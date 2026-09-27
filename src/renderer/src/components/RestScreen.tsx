@@ -3,6 +3,7 @@ import { useSettings } from '../lib/useSettings'
 import { useMedia } from '../lib/useMedia'
 import NatureVideo from './NatureVideo'
 import VideoPicker from './VideoPicker'
+import MusicPicker from './MusicPicker'
 import Switch from './ui/Switch'
 import { useWallpapers } from '../lib/useWallpapers'
 import { sceneImage } from './Background'
@@ -32,16 +33,16 @@ function RestSettings({
   rest,
   update,
   media,
-  withMusic,
   onClose
 }: {
   rest: Settings['rest']
   update: (patch: { rest: Partial<Settings['rest']> }) => Promise<void>
   media: { videos: MediaItem[] }
-  withMusic: boolean
   onClose: () => void
 }): JSX.Element {
   const [picker, setPicker] = useState(false)
+  const [musicPicker, setMusicPicker] = useState(false)
+  const owner = calmMusic.isOwner()
   const music = calmMusic.useCalmMusic()
   const show: Show = rest.black ? 'black' : rest.video ? 'video' : 'picture'
   const chosen = media.videos.find((v) => v.id === rest.videoId)
@@ -92,22 +93,28 @@ function RestSettings({
         <div>Sekunden zeigen</div>
         <Switch on={rest.seconds} onToggle={(v) => update({ rest: { seconds: v } })} />
       </div>
-      {withMusic && (
-        <div className="settings-row">
-          <div>
-            <div>Ruhemusik</div>
-            <div className="quick-sub">{music.current ? music.current.title : ''}</div>
-          </div>
-          <div className="row">
-            <button type="button" className="round-btn" aria-label={music.playing ? 'Pause' : 'Abspielen'} onClick={() => calmMusic.toggle()}>
-              {music.playing ? '❚❚' : '▶'}
-            </button>
-            <button type="button" className="round-btn" aria-label="Nächstes Stück" onClick={() => calmMusic.next()}>
-              ››
-            </button>
-          </div>
+      <div className="settings-row">
+        <div>
+          <div>Ruhemusik</div>
+          <div className="quick-sub">{owner && music.current ? music.current.title : '55 ruhige Stücke'}</div>
         </div>
-      )}
+        <div className="row">
+          <button
+            type="button"
+            className="round-btn"
+            aria-label={owner && music.playing ? 'Pause' : 'Abspielen'}
+            onClick={() => calmMusic.command(owner && music.playing ? 'pause' : 'play')}
+          >
+            {owner && music.playing ? '❚❚' : '▶'}
+          </button>
+          <button type="button" className="round-btn" aria-label="Nächstes Stück" onClick={() => calmMusic.command('next')}>
+            ››
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => setMusicPicker(true)}>
+            Auswählen
+          </button>
+        </div>
+      </div>
       <div className="settings-row">
         <div>Musik beim Start</div>
         <Switch on={rest.music} onToggle={(v) => update({ rest: { music: v } })} />
@@ -115,6 +122,7 @@ function RestSettings({
       <button type="button" className="btn btn-primary wide" onClick={() => window.znerol.rest.stop()}>
         Ruhemodus beenden
       </button>
+      {musicPicker && <MusicPicker onClose={() => setMusicPicker(false)} />}
       {picker && (
         <VideoPicker
           selected={rest.videoId}
@@ -134,7 +142,7 @@ function RestSettings({
  * (or second), no blur, no system measurements. A short click or any key ends it; a long
  * press or right click opens its settings.
  */
-export default function RestScreen({ index, withMusic = false }: { index: number; withMusic?: boolean }): JSX.Element {
+export default function RestScreen({ index }: { index: number }): JSX.Element {
   const { settings, update } = useSettings()
   const walls = useWallpapers(settings, noop, false)
   const [now, setNow] = useState(() => new Date())
@@ -243,7 +251,7 @@ export default function RestScreen({ index, withMusic = false }: { index: number
       {index === 0 && !panel && <div className="rest-hint">Klicken oder Taste: beenden · lange drücken oder Rechtsklick: einstellen</div>}
       {panel && (
         <div className="rest-settings-wrap" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}>
-          <RestSettings rest={rest} update={update} media={media} withMusic={withMusic} onClose={() => setPanel(false)} />
+          <RestSettings rest={rest} update={update} media={media} onClose={() => setPanel(false)} />
         </div>
       )}
     </div>

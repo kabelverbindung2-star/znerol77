@@ -447,6 +447,9 @@ function wireIpc(): void {
   ipcMain.handle('rest:stop', () => stopRest())
   ipcMain.handle('display:off', () => displayOff())
   ipcMain.handle('media:list', (_e, force?: boolean) => getMediaLibrary(Boolean(force)))
+  ipcMain.handle('music:command', (_e, cmd: string, id?: string) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('music:command', { cmd, id })
+  })
 
   ipcMain.handle('wallpapers:list', () => listWallpapers())
   ipcMain.handle('wallpapers:sync', () => syncCommonsWallpapers(true))

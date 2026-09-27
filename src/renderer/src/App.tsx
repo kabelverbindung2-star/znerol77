@@ -3,6 +3,7 @@ import Background from './components/Background'
 import RestScreen from './components/RestScreen'
 import VideoBackground from './components/VideoBackground'
 import VideoPicker from './components/VideoPicker'
+import MusicPicker from './components/MusicPicker'
 import type { MenuItem } from './components/ui/ContextMenu'
 import * as calmMusic from './lib/calmMusic'
 import WindowControls from './components/WindowControls'
@@ -45,6 +46,8 @@ const REST = params.get('rest') // (older builds loaded the rest screen through 
 const SECOND = params.get('screen') === '2'
 const CUSTOM_FRAME = params.get('frame') === 'custom'
 const START_TAB = (params.get('tab') as TabId | null) ?? 'uebersicht'
+// the main window plays the calm music; other windows send it their button presses
+calmMusic.setOwner(!SECOND)
 
 const LIME = '#c6f432'
 
@@ -154,6 +157,20 @@ function MainApp(): JSX.Element {
   const needsWindows = !isWindows && ['autostart', 'autoclicker', 'audio'].includes(tab)
 
   const [videoPicker, setVideoPicker] = useState(false)
+  const [musicPicker, setMusicPicker] = useState(false)
+  const music = calmMusic.useCalmMusic()
+  useEffect(() => {
+    if (SECOND) return
+    return window.znerol.music.onCommand(({ cmd, id }) => calmMusic.runCommand(cmd as calmMusic.MusicCommand, id))
+  }, [])
+  const musicItems = (): MenuItem[] => [
+    {
+      label: !SECOND && music.playing ? `Ruhemusik pausieren${music.current ? ` (${music.current.title.slice(0, 28)})` : ''}` : 'Ruhemusik abspielen',
+      onClick: () => calmMusic.command(!SECOND && music.playing ? 'pause' : 'play')
+    },
+    { label: 'Nächstes Stück', onClick: () => calmMusic.command('next') },
+    { label: 'Musik auswählen …', onClick: () => setMusicPicker(true) }
+  ]
   const setBackground = (bg: typeof background): void => {
     update({ appearance: { style: 'glass', background: bg } })
   }
@@ -167,6 +184,8 @@ function MainApp(): JSX.Element {
     { label: 'Video auswählen …', onClick: () => setVideoPicker(true) },
     ...(showPicture && !SECOND ? [{ label: 'Bild auswählen …', onClick: () => setPanelOpen(true) }] : []),
     { label: '', separator: true },
+    ...musicItems(),
+    { label: '', separator: true },
     { label: 'Ruhemodus starten', onClick: startRest }
   ]
   // right click on free space (not on a tile, card or control) = background menu
@@ -175,6 +194,7 @@ function MainApp(): JSX.Element {
     if (t.closest('.tile, .glass, .card, input, textarea, select, button, a, .ctx-menu, .modal')) return
     ctx.open(e, backgroundItems())
   }
+  const musicPickerEl = musicPicker && <MusicPicker onClose={() => setMusicPicker(false)} />
   const videoPickerEl = videoPicker && (
     <VideoPicker
       selected={settings.rest.videoId}
@@ -197,7 +217,7 @@ function MainApp(): JSX.Element {
       { label: 'Bildschirm ausschalten', onClick: () => window.znerol.display.off() }
     ])
 
-  if (resting !== null) return <RestScreen index={resting} withMusic={!SECOND} />
+  if (resting !== null) return <RestScreen index={resting} />
 
   if (SECOND) {
     return (
@@ -223,6 +243,7 @@ function MainApp(): JSX.Element {
         </main>
         {ctx.menu}
         {videoPickerEl}
+        {musicPickerEl}
       </div>
     )
   }
@@ -274,6 +295,15 @@ function MainApp(): JSX.Element {
           >
             <NavIcon name="displayoff" />
             <span>Bildschirm aus</span>
+          </button>
+          <button
+            type="button"
+            className={music.playing ? 'active' : ''}
+            title="Ruhemusik (auch Rechtsklick auf freie Fläche)"
+            onClick={(e) => ctx.open(e, musicItems())}
+          >
+            <NavIcon name="music" />
+            <span>Musik</span>
           </button>
           <button
             type="button"
@@ -343,6 +373,7 @@ function MainApp(): JSX.Element {
       {showPicture && <WallpaperInfo wallpaper={walls.current} />}
       {ctx.menu}
       {videoPickerEl}
+      {musicPickerEl}
     </div>
   )
 }

@@ -161,3 +161,38 @@ export function useCalmMusic(): State & { current: MediaItem | null } {
   }, [])
   return { ...s, current: s.list[s.index] ?? null }
 }
+
+export async function playTrackById(id: string): Promise<void> {
+  await ensure()
+  const i = state.list.findIndex((t) => t.id === id)
+  if (i >= 0) await playIndex(i)
+}
+
+// ---------- one player for all windows ----------
+// The music plays in the main window. The second screen and the rest screens send their
+// button presses there, so there is never a second player running at the same time.
+export type MusicCommand = 'toggle' | 'next' | 'prev' | 'play' | 'pause' | 'track'
+let owner = false
+
+export function setOwner(isOwner: boolean): void {
+  owner = isOwner
+}
+
+export function isOwner(): boolean {
+  return owner
+}
+
+export function runCommand(cmd: MusicCommand, id?: string): void {
+  if (cmd === 'toggle') void toggle()
+  else if (cmd === 'next') void next()
+  else if (cmd === 'prev') void prev()
+  else if (cmd === 'play') void play()
+  else if (cmd === 'pause') pause()
+  else if (cmd === 'track' && id) void playTrackById(id)
+}
+
+/** Use this from any window: plays here if this is the main window, otherwise asks the main window. */
+export function command(cmd: MusicCommand, id?: string): void {
+  if (owner) runCommand(cmd, id)
+  else window.znerol.music.command(cmd, id)
+}

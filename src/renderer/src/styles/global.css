@@ -3672,3 +3672,12 @@ html[data-bg='transparent'] body {
 .modal.video-picker {
   background: var(--pop-bg);
 }
+
+.calm-list.picker {
+  max-height: 64vh;
+  margin-top: 10px;
+}
+
+.calm-list.picker button {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 48px 90px;
+}
