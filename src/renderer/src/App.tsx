@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from 'react'
 import Background from './components/Background'
 import RestScreen from './components/RestScreen'
+import VideoBackground from './components/VideoBackground'
+import * as calmMusic from './lib/calmMusic'
 import WindowControls from './components/WindowControls'
 import { useContextMenu } from './components/ui/ContextMenu'
 import WallpaperPanel from './components/WallpaperPanel'
@@ -72,6 +74,7 @@ function MainApp(): JSX.Element {
   const [restNote, setRestNote] = useState<string | null>(null)
   const startRest = (): void => {
     setRestNote(null)
+    if (settings.rest.music) calmMusic.play().catch(() => undefined)
     window.znerol.rest.start().catch((e: Error) => setRestNote(`Ruhemodus ging nicht: ${e.message}`))
   }
 
@@ -79,6 +82,7 @@ function MainApp(): JSX.Element {
   const glass = look === 'glass'
   const showPicture = glass && (background === 'photos' || background === 'fixed')
   const transparent = glass && background === 'transparent'
+  const videoBg = glass && background === 'video'
   // only the main window rotates the picture; the second screen follows it
   const walls = useWallpapers(settings, update, !SECOND && showPicture && background === 'photos')
   const nav = settings.appearance.nav ?? 'top'
@@ -151,6 +155,7 @@ function MainApp(): JSX.Element {
     return (
       <div className={cls} style={style}>
         {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
+      {videoBg && <VideoBackground dim={settings.wallpaper.dim} />}
         <div className="drag-strip" />
         <main className="content content-uebersicht">
           <Uebersicht
@@ -176,6 +181,7 @@ function MainApp(): JSX.Element {
   return (
     <div className={cls} style={style}>
       {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
+      {videoBg && <VideoBackground dim={settings.wallpaper.dim} />}
 
       <div className="drag-strip" />
       {CUSTOM_FRAME && <WindowControls />}

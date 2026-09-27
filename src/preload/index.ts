@@ -124,6 +124,9 @@ const api = {
   },
   display: {
     off: () => ipcRenderer.invoke('display:off')
+  },
+  media: {
+    list: (force = false) => ipcRenderer.invoke('media:list', force)
   }
 }
 

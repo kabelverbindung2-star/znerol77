@@ -3221,3 +3221,129 @@ html[data-bg='transparent'] body {
   font-size: 14px;
   opacity: 0.45;
 }
+
+/* ---------- nature videos (rest mode, background) ---------- */
+.nature-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+
+.nature-video.visible {
+  opacity: 1;
+}
+
+/* the rest screen forbids transitions; the film fade is the one exception */
+.rest-screen .nature-video {
+  transition: opacity 1.6s ease !important;
+}
+
+.rest-corner {
+  position: absolute;
+  right: 4vw;
+  bottom: 7vh;
+  text-align: right;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55);
+}
+
+.rest-corner .rest-time {
+  font-size: clamp(40px, 4.2vw, 76px);
+  font-weight: 400;
+}
+
+.rest-corner .rest-date {
+  font-size: clamp(13px, 1vw, 18px);
+  opacity: 0.85;
+}
+
+.rest-credit {
+  position: absolute;
+  left: 18px;
+  bottom: 14px;
+  max-width: 50vw;
+  font-size: 11px;
+  opacity: 0.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+
+.rest-screen.with-video .rest-hint {
+  bottom: 14px;
+  opacity: 0.35;
+}
+
+.bg .nature-video {
+  z-index: 0;
+}
+
+/* ---------- calm music ---------- */
+.calm-music {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.calm-music .np-controls {
+  align-items: center;
+}
+
+.calm-music .np-controls input[type='range'] {
+  flex: 1;
+  min-width: 60px;
+  max-width: 180px;
+  margin-left: 8px;
+}
+
+.calm-section {
+  margin-top: 14px;
+  padding: 18px;
+}
+
+.calm-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calm-list button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) 48px 20px;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.calm-list button:hover {
+  background: var(--fill-1);
+}
+
+.calm-list button.active {
+  background: var(--fill-3);
+  font-weight: 600;
+}
+
+.calm-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

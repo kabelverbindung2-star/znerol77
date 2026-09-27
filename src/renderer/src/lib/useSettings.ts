@@ -21,6 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weather: null,
   dashboard: { widgets: DEFAULT_WIDGETS, widgets2: [] },
   screens: { dual: false, displayId: null },
+  rest: { video: true, music: false },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }
@@ -33,6 +34,7 @@ export interface SettingsPatch {
   weather?: Settings['weather']
   dashboard?: Partial<Settings['dashboard']>
   screens?: Partial<Settings['screens']>
+  rest?: Partial<Settings['rest']>
   performance?: Partial<Settings['performance']>
   accent?: string
 }
@@ -58,6 +60,7 @@ export function useSettings(): { settings: Settings; update: (patch: SettingsPat
       weather: patch.weather !== undefined ? patch.weather : s.weather,
       dashboard: { ...s.dashboard, ...(patch.dashboard ?? {}) },
       screens: { ...s.screens, ...(patch.screens ?? {}) },
+      rest: { ...s.rest, ...(patch.rest ?? {}) },
       performance: { ...s.performance, ...(patch.performance ?? {}) },
       accent: patch.accent ?? s.accent
     }))

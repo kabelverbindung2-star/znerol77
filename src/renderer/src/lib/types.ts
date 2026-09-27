@@ -37,7 +37,7 @@ export interface Settings {
   appearance: {
     style: 'glass' | 'basic'
     mode: 'dark' | 'light'
-    background: 'photos' | 'fixed' | 'plain' | 'transparent'
+    background: 'photos' | 'fixed' | 'plain' | 'transparent' | 'video'
     nav: 'left' | 'top' | 'right'
   }
   wallpaper: {
@@ -54,6 +54,7 @@ export interface Settings {
   weather: { name: string; lat: number; lon: number } | null
   dashboard: { widgets: WidgetConfig[]; widgets2: WidgetConfig[] }
   screens: { dual: boolean; displayId: number | null }
+  rest: { video: boolean; music: boolean }
   performance: { intervalSec: number }
   accent: string
 }
@@ -121,4 +122,16 @@ export interface ClickerStatus {
   clicks: number
   profileId: string | null
   error: string | null
+}
+
+export interface MediaItem {
+  id: string
+  kind: 'video' | 'music'
+  title: string
+  artist: string
+  license: string
+  licenseUrl: string
+  descriptionUrl: string
+  duration: number
+  url: string
 }

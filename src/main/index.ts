@@ -50,6 +50,7 @@ import {
   showToast
 } from './modules/overlay'
 import { startRest, stopRest, isResting, displayOff } from './modules/rest'
+import { getMedia as getMediaLibrary } from './modules/media'
 import { startAutoUpdates, getUpdateState, installUpdateNow, checkForUpdatesNow } from './modules/updater'
 
 const PRELOAD = join(__dirname, '../preload/index.mjs')
@@ -440,6 +441,7 @@ function wireIpc(): void {
   )
   ipcMain.handle('rest:stop', () => stopRest())
   ipcMain.handle('display:off', () => displayOff())
+  ipcMain.handle('media:list', (_e, force?: boolean) => getMediaLibrary(Boolean(force)))
 
   ipcMain.handle('wallpapers:list', () => listWallpapers())
   ipcMain.handle('wallpapers:sync', () => syncCommonsWallpapers(true))
@@ -497,4 +499,5 @@ app.on('will-quit', () => {
   clickerEngine.dispose()
   winHelper.dispose()
 })
+
 

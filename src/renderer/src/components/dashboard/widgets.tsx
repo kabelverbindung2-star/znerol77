@@ -3,6 +3,7 @@ import Sparkline from '../ui/Sparkline'
 import Switch from '../ui/Switch'
 import InfoTip from '../ui/InfoTip'
 import WeatherChip from '../WeatherChip'
+import CalmMusic from '../CalmMusic'
 import { Calculator, Countdown, Stopwatch } from '../tools/Tools'
 import { usePoll } from '../../lib/usePoll'
 import { BoostExplainer, useBoost } from '../../lib/boost'
@@ -435,6 +436,7 @@ export const WIDGETS: Record<string, WidgetDef> = {
   processes: { name: 'Größte Verbraucher', desc: 'Programme mit der meisten Last', sizes: ['s', 'm'], render: (p) => <ProcessesWidget {...p} /> },
   quick: { name: 'Schnellzugriff', desc: 'Overlay, Boost, Klicker, Autostart', sizes: ['m'], render: (p) => <QuickWidget {...p} /> },
   media: { name: 'Musik', desc: 'Was gerade läuft, mit Pause und Überspringen', sizes: ['m', 'l'], render: (p) => <MediaWidget {...p} /> },
+  calm: { name: 'Ruhemusik', desc: '50 ruhige, freie Musikstücke', sizes: ['m', 'l'], render: () => <CalmMusic /> },
   volume: { name: 'Lautstärke', desc: 'Lautstärke, stumm, Gerät wechseln', sizes: ['s', 'm'], render: () => <VolumeWidget /> },
   network: { name: 'Netzwerk', desc: 'Download und Upload', sizes: ['m', 'l'], render: (p) => <NetworkWidget {...p} /> },
   disks: { name: 'Laufwerke', desc: 'Belegter Speicherplatz', sizes: ['m'], render: (p) => <DisksWidget {...p} /> },

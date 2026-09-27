@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSettings } from '../lib/useSettings'
+import { useMedia } from '../lib/useMedia'
+import NatureVideo from './NatureVideo'
 import { useWallpapers } from '../lib/useWallpapers'
 import { sceneImage } from './Background'
 import { describe } from './WeatherChip'
-import type { Weather } from '../lib/types'
+import type { MediaItem, Weather } from '../lib/types'
 
 const noop = async (): Promise<void> => undefined
 
@@ -16,6 +18,10 @@ export default function RestScreen({ index }: { index: number }): JSX.Element {
   const walls = useWallpapers(settings, noop, false)
   const [now, setNow] = useState(() => new Date())
   const [weather, setWeather] = useState<Weather | null>(null)
+  const media = useMedia()
+  const [film, setFilm] = useState<MediaItem | null>(null)
+  const onFilm = useCallback((v: MediaItem | null) => setFilm(v), [])
+  const withVideo = settings.rest.video && media.videos.length > 0
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
@@ -54,18 +60,37 @@ export default function RestScreen({ index }: { index: number }): JSX.Element {
   const w = weather ? describe(weather.code, weather.isDay) : null
 
   return (
-    <div className={`rest-screen ${index === 0 ? 'main' : 'side'}`}>
-      {picture && <img className="rest-bg" src={src} alt="" draggable={false} />}
-      <div className="rest-center">
-        <div className="rest-time">
-          {hh}:{mm}
-          <small>{ss}</small>
+    <div className={`rest-screen ${index === 0 ? 'main' : 'side'} ${withVideo ? 'with-video' : ''}`}>
+      {picture && !(withVideo && film) && <img className="rest-bg" src={src} alt="" draggable={false} />}
+      {withVideo && <NatureVideo videos={media.videos} offset={index * 7} onCurrent={onFilm} />}
+      {withVideo ? (
+        <div className="rest-corner">
+          <div className="rest-date">
+            {now.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' })}
+            {w && weather && ` · ${Math.round(weather.temp)} °C`}
+          </div>
+          <div className="rest-time">
+            {hh}:{mm}
+          </div>
         </div>
-        <div className="rest-date">
-          {now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
-          {w && weather && place && ` · ${Math.round(weather.temp)} °C, ${w.text} in ${place.name.split(',')[0]}`}
+      ) : (
+        <div className="rest-center">
+          <div className="rest-time">
+            {hh}:{mm}
+            <small>{ss}</small>
+          </div>
+          <div className="rest-date">
+            {now.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {w && weather && place && ` · ${Math.round(weather.temp)} °C, ${w.text} in ${place.name.split(',')[0]}`}
+          </div>
         </div>
-      </div>
+      )}
+      {film && (
+        <div className="rest-credit">
+          {film.title} · {film.artist}
+          {film.license ? ` · ${film.license}` : ''} · Wikimedia Commons
+        </div>
+      )}
       {index === 0 && <div className="rest-hint">Ruhemodus · Klicken oder eine Taste drücken zum Beenden</div>}
     </div>
   )

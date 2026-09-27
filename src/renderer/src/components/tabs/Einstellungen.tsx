@@ -177,6 +177,7 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
               options={[
                 { value: 'photos', label: 'Wechselnde Bilder' },
                 { value: 'fixed', label: 'Festes Bild' },
+                { value: 'video', label: 'Naturvideos' },
                 { value: 'plain', label: 'Kein Bild' },
                 { value: 'transparent', label: 'Durchsichtig' }
               ]}
@@ -186,9 +187,23 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
               {a.background === 'photos' && 'Das Bild wechselt automatisch. Welche Bilder und wie oft stellst du unten ein.'}
               {a.background === 'fixed' && 'Ein Bild, das bleibt. Kein automatischer Wechsel.'}
               {a.background === 'plain' && 'Gar kein Bild – einfarbiger Hintergrund, der Bild-Knopf verschwindet.'}
+              {a.background === 'video' &&
+                'Bewegte Natur (Wasserfälle, Wolken, Nordlichter …) hinter den Karten. Braucht Internet und etwas mehr Grafikleistung; pausiert, wenn die App minimiert ist.'}
               {a.background === 'transparent' &&
                 'Das Fenster wird durchsichtig: zwischen und hinter den Karten siehst du deinen Desktop. Beim Umschalten öffnet sich das Fenster kurz neu.'}
             </div>
+            {a.background === 'video' && (
+              <Row label="Video abdunkeln">
+                <input
+                  type="range"
+                  min={0}
+                  max={60}
+                  value={wp.dim}
+                  aria-label="Video abdunkeln"
+                  onChange={(e) => update({ wallpaper: { dim: Number(e.target.value) } })}
+                />
+              </Row>
+            )}
             {(a.background === 'photos' || a.background === 'fixed') && (
               <>
                 {a.background === 'photos' && (
@@ -270,6 +285,12 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
             <button type="button" className="btn btn-sm" onClick={startRest}>
               Starten
             </button>
+          </Row>
+          <Row label="Naturvideos im Ruhemodus" sub="Aus = stilles Bild, am sparsamsten">
+            <Switch on={settings.rest.video} onToggle={(v) => update({ rest: { video: v } })} />
+          </Row>
+          <Row label="Ruhemusik im Ruhemodus" sub="Startet die ruhige Musik mit dem Ruhemodus (Liste im Tab Audio)">
+            <Switch on={settings.rest.music} onToggle={(v) => update({ rest: { music: v } })} />
           </Row>
           <Row label="Bildschirm aus" sub="Nur die Bildschirme gehen aus, der PC läuft weiter. Maus bewegen weckt sie.">
             <button type="button" className="btn btn-sm" onClick={() => window.znerol.display.off()}>

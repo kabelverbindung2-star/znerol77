@@ -12,7 +12,7 @@ export interface Settings {
   appearance: {
     style: 'glass' | 'basic'
     mode: 'dark' | 'light' // used by the basic style
-    background: 'photos' | 'fixed' | 'plain' | 'transparent'
+    background: 'photos' | 'fixed' | 'plain' | 'transparent' | 'video'
     nav: 'left' | 'top' | 'right' // where the navigation bar sits
   }
   wallpaper: {
@@ -45,6 +45,10 @@ export interface Settings {
   }
   performance: {
     intervalSec: number
+  }
+  rest: {
+    video: boolean // moving nature videos instead of a still picture
+    music: boolean // start the calm music with rest mode
   }
   accent: string
 }
@@ -80,6 +84,7 @@ const DEFAULTS: Settings = {
   weather: null,
   dashboard: { widgets: DEFAULT_WIDGETS, widgets2: DEFAULT_WIDGETS_2 },
   screens: { dual: false, displayId: null },
+  rest: { video: true, music: false },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }
@@ -101,6 +106,7 @@ export async function getSettings(): Promise<Settings> {
       weather: raw.weather && typeof raw.weather.lat === 'number' ? raw.weather : null,
       dashboard: { widgets, widgets2 },
       screens: { ...DEFAULTS.screens, ...(raw.screens ?? {}) },
+      rest: { ...DEFAULTS.rest, ...(raw.rest ?? {}) },
       performance: { ...DEFAULTS.performance, ...(raw.performance ?? {}) },
       accent: typeof raw.accent === 'string' ? raw.accent : DEFAULTS.accent
     }
@@ -122,6 +128,7 @@ export type SettingsPatch = {
   weather?: Settings['weather']
   dashboard?: Partial<Settings['dashboard']>
   screens?: Partial<Settings['screens']>
+  rest?: Partial<Settings['rest']>
   performance?: Partial<Settings['performance']>
   accent?: string
 }
@@ -140,6 +147,7 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
     weather: patch.weather !== undefined ? patch.weather : current.weather,
     dashboard: { ...current.dashboard, ...(patch.dashboard ?? {}) },
     screens: { ...current.screens, ...(patch.screens ?? {}) },
+    rest: { ...current.rest, ...(patch.rest ?? {}) },
     performance: { ...current.performance, ...(patch.performance ?? {}) },
     accent: patch.accent ?? current.accent
   }
