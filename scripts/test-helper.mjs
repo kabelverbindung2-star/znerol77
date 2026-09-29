@@ -138,6 +138,28 @@ try {
   console.log(`clicker with limit 20: ${lim.data.clicks} clicks, running: ${lim.data.running}`)
   if (lim.data.clicks !== 20 || lim.data.running) throw new Error('click limit not respected: ' + JSON.stringify(lim.data))
 
+  // new clicker: keyboard key (F24, harmless), time limit, hold mode, fixed positions
+  const base = { button: 'left', key: 0, mods: 0, double: false, gap: 30, interval: 10, jitterPct: 0, limit: 0, time: 0, corner: false, edge: false, positions: '', holdKey: 0, holdMods: 0 }
+  await ask(h, 'clickRun', { ...base, key: 0x87, interval: 5, time: 500 })
+  await wait(900)
+  const kb = await ask(h, 'clickStatus')
+  console.log('keyboard F24 for 0.5 s:', JSON.stringify(kb.data))
+  if (kb.data.running || kb.data.reason !== 'time' || kb.data.clicks < 40) throw new Error('keyboard/time limit failed: ' + JSON.stringify(kb.data))
+
+  await ask(h, 'clickRun', { ...base, holdKey: 0x87 })
+  await wait(400)
+  const held = await ask(h, 'clickStatus')
+  await ask(h, 'clickStop')
+  console.log('hold mode without the key held:', JSON.stringify(held.data))
+  if (!held.data.running || held.data.state !== 'waiting' || held.data.clicks !== 0) throw new Error('hold mode failed: ' + JSON.stringify(held.data))
+
+  await ask(h, 'clickRun', { ...base, positions: '10,10;20,20', limit: 6, double: true, gap: 5 })
+  await wait(600)
+  const pos = await ask(h, 'clickStatus')
+  const cur = await ask(h, 'cursorPos')
+  console.log('positions + double, limit 6:', JSON.stringify(pos.data), 'cursor', JSON.stringify(cur.data))
+  if (pos.data.clicks !== 6 || pos.data.reason !== 'limit') throw new Error('positions/limit failed: ' + JSON.stringify(pos.data))
+
   const bad = await ask(h, 'nope')
   if (bad.ok) throw new Error('unknown command should fail')
   h.ps.kill()

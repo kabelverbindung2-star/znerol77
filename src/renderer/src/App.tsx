@@ -312,8 +312,9 @@ function MainApp(): JSX.Element {
           <button
             type="button"
             className={music.playing ? 'active' : ''}
-            title="Radio & Musik (auch Rechtsklick auf freie Fläche)"
-            onClick={(e) => ctx.open(e, musicItems())}
+            title="Radio & Musik · Rechtsklick: Pause / Weiter"
+            onClick={() => setMusicPicker(true)}
+            onContextMenu={(e) => ctx.open(e, musicItems())}
           >
             <NavIcon name="music" />
             <span>Musik</span>

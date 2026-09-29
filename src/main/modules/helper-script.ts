@@ -541,20 +541,35 @@ namespace Znerol {
 
   // Autoclicker loop on its own thread: 1 ms timer resolution + SendInput, so up to
   // ~500 clicks per second are possible without Node/IPC in the hot path.
+  // Clicks the mouse or presses a key (with Ctrl/Alt/Shift/Win), at fixed positions or
+  // where the mouse is, with limits (count, time, screen corner, screen edge) and an
+  // optional "hold" mode that only clicks while a key combination is held down.
   public static class Clicker {
     [StructLayout(LayoutKind.Sequential)]
     struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)]
-    struct INPUT { public uint type; public MOUSEINPUT mi; }
+    struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+    // 64-bit layout of INPUT (the helper always runs in 64-bit PowerShell on Windows 10/11)
+    [StructLayout(LayoutKind.Explicit, Size = 40)]
+    struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(8)] public MOUSEINPUT mi; [FieldOffset(8)] public KEYBDINPUT ki; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct POINT { public int X; public int Y; }
 
     [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint count, INPUT[] inputs, int size);
     [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT p);
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vk);
+    [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
     [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint period);
     [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint period);
 
     static Thread worker;
     static volatile bool running;
+    static volatile string state = "idle"; // idle | clicking | waiting (hold mode)
+    static volatile string reason = "";    // why it stopped by itself
     static long clicks;
+
+    static readonly int[] MOD_VK = { 0x11, 0x12, 0x10, 0x5B }; // Ctrl, Alt, Shift, Win (bit 1, 2, 4, 8)
 
     static INPUT Mouse(uint flags) {
       var i = new INPUT();
@@ -563,18 +578,68 @@ namespace Znerol {
       return i;
     }
 
-    public static void Start(string button, bool dbl, bool move, int x, int y, double intervalMs, double jitterMs, long limit) {
-      Stop();
-      uint down = 0x0002, up = 0x0004;
-      if (button == "right") { down = 0x0008; up = 0x0010; }
-      else if (button == "middle") { down = 0x0020; up = 0x0040; }
+    static INPUT Key(int vk, bool up) {
+      var i = new INPUT();
+      i.type = 1; // INPUT_KEYBOARD
+      i.ki.wVk = (ushort)vk;
+      i.ki.dwFlags = up ? 0x0002u : 0u; // KEYEVENTF_KEYUP
+      return i;
+    }
+
+    static bool Down(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
+
+    static bool ComboDown(int vk, int mods) {
+      if (vk <= 0 || !Down(vk)) return false;
+      for (int b = 0; b < 4; b++) if ((mods & (1 << b)) != 0 && !Down(MOD_VK[b])) return false;
+      return true;
+    }
+
+    /** One "press": modifiers down, the mouse button or key, modifiers up. */
+    static INPUT[] Press(string button, int keyVk, int mods) {
       var list = new List<INPUT>();
-      int times = dbl ? 2 : 1;
-      for (int k = 0; k < times; k++) { list.Add(Mouse(down)); list.Add(Mouse(up)); }
-      INPUT[] batch = list.ToArray();
+      for (int b = 0; b < 4; b++) if ((mods & (1 << b)) != 0) list.Add(Key(MOD_VK[b], false));
+      if (keyVk > 0) {
+        list.Add(Key(keyVk, false));
+        list.Add(Key(keyVk, true));
+      } else {
+        uint down = 0x0002, up = 0x0004;
+        if (button == "right") { down = 0x0008; up = 0x0010; }
+        else if (button == "middle") { down = 0x0020; up = 0x0040; }
+        list.Add(Mouse(down));
+        list.Add(Mouse(up));
+      }
+      for (int b = 3; b >= 0; b--) if ((mods & (1 << b)) != 0) list.Add(Key(MOD_VK[b], true));
+      return list.ToArray();
+    }
+
+    static int[][] ParsePositions(string text) {
+      var result = new List<int[]>();
+      if (string.IsNullOrEmpty(text)) return result.ToArray();
+      foreach (var part in text.Split(';')) {
+        var xy = part.Split(',');
+        int x, y;
+        if (xy.Length == 2 && int.TryParse(xy[0], out x) && int.TryParse(xy[1], out y)) result.Add(new int[] { x, y });
+      }
+      return result.ToArray();
+    }
+
+    /** Old call (kept for the tests): mouse, optional fixed point, fixed jitter in ms. */
+    public static void Start(string button, bool dbl, bool move, int x, int y, double intervalMs, double jitterMs, long limit) {
+      Run(button, 0, 0, dbl, 30, intervalMs, 0, jitterMs, limit, 0, false, false, move ? (x + "," + y) : "", 0, 0);
+    }
+
+    public static void Run(string button, int keyVk, int mods, bool dbl, double dblGapMs, double intervalMs, double jitterPct, double jitterMs,
+                           long limit, double timeLimitMs, bool cornerStop, bool edgeStop, string positions, int holdVk, int holdMods) {
+      Stop();
+      INPUT[] batch = Press(button, keyVk, mods);
       int size = Marshal.SizeOf(typeof(INPUT));
       double interval = Math.Max(2.0, intervalMs);
+      int[][] points = ParsePositions(positions);
+      bool hold = holdVk > 0;
+      int vx = GetSystemMetrics(76), vy = GetSystemMetrics(77), vw = GetSystemMetrics(78), vh = GetSystemMetrics(79);
       running = true;
+      reason = "";
+      state = hold ? "waiting" : "clicking";
       Interlocked.Exchange(ref clicks, 0);
       worker = new Thread(() => {
         timeBeginPeriod(1);
@@ -582,12 +647,40 @@ namespace Znerol {
           var sw = Stopwatch.StartNew();
           var rnd = new Random();
           double next = 0;
+          int pointIndex = 0;
           while (running) {
-            if (move) SetCursorPos(x, y);
+            if (timeLimitMs > 0 && sw.Elapsed.TotalMilliseconds >= timeLimitMs) { reason = "time"; break; }
+            if (cornerStop || edgeStop) {
+              POINT c;
+              if (GetCursorPos(out c)) {
+                bool left = c.X <= vx + 1, right = c.X >= vx + vw - 2, top = c.Y <= vy + 1, bottom = c.Y >= vy + vh - 2;
+                if (cornerStop && (left || right) && (top || bottom)) { reason = "corner"; break; }
+                if (edgeStop && (left || right || top || bottom) && points.Length == 0) { reason = "edge"; break; }
+              }
+            }
+            if (hold && !ComboDown(holdVk, holdMods)) {
+              state = "waiting";
+              Thread.Sleep(5);
+              next = sw.Elapsed.TotalMilliseconds;
+              continue;
+            }
+            state = "clicking";
+            if (points.Length > 0) {
+              int[] pt = points[pointIndex % points.Length];
+              pointIndex++;
+              SetCursorPos(pt[0], pt[1]);
+            }
             SendInput((uint)batch.Length, batch, size);
-            long c = Interlocked.Increment(ref clicks);
-            if (limit > 0 && c >= limit) { running = false; break; }
-            next += interval + (jitterMs > 0 ? rnd.NextDouble() * jitterMs : 0);
+            if (dbl) {
+              Thread.Sleep((int)Math.Max(1, Math.Min(500, dblGapMs)));
+              SendInput((uint)batch.Length, batch, size);
+            }
+            long n = Interlocked.Increment(ref clicks);
+            if (limit > 0 && n >= limit) { reason = "limit"; break; }
+            double step = interval;
+            if (jitterPct > 0) step = interval * (1 + (rnd.NextDouble() * 2 - 1) * Math.Min(90, jitterPct) / 100.0);
+            if (jitterMs > 0) step += rnd.NextDouble() * jitterMs;
+            next += Math.Max(2.0, step);
             double now = sw.Elapsed.TotalMilliseconds;
             if (now - next > 100) next = now; // after a stall, do not try to catch up
             while (running) {
@@ -597,6 +690,8 @@ namespace Znerol {
             }
           }
         } finally {
+          running = false;
+          state = "idle";
           timeEndPeriod(1);
         }
       });
@@ -609,11 +704,19 @@ namespace Znerol {
       running = false;
       var w = worker;
       worker = null;
-      if (w != null) w.Join(300);
+      if (w != null) w.Join(600);
     }
 
     public static string Status() {
-      return "{\"running\":" + (running ? "true" : "false") + ",\"clicks\":" + Interlocked.Read(ref clicks) + "}";
+      return "{\"running\":" + (running ? "true" : "false") + ",\"clicks\":" + Interlocked.Read(ref clicks) +
+        ",\"state\":\"" + state + "\",\"reason\":\"" + reason + "\"}";
+    }
+
+    /** Where the mouse is right now (physical pixels), for "add position". */
+    public static string CursorPos() {
+      POINT c;
+      GetCursorPos(out c);
+      return "{\"x\":" + c.X + ",\"y\":" + c.Y + "}";
     }
   }
 }
@@ -780,6 +883,8 @@ while ($true) {
       'mediaControl' { $data = Media-Control ([string]$req.arg) }
       'click' { [Znerol.Win]::Click([string]$req.button, [bool]$req.move, [int]$req.x, [int]$req.y, [bool]$req.double) }
       'clickStart' { [Znerol.Clicker]::Start([string]$req.button, [bool]$req.double, [bool]$req.move, [int]$req.x, [int]$req.y, [double]$req.interval, [double]$req.jitter, [long]$req.limit) }
+      'clickRun' { [Znerol.Clicker]::Run([string]$req.button, [int]$req.key, [int]$req.mods, [bool]$req.double, [double]$req.gap, [double]$req.interval, [double]$req.jitterPct, 0, [long]$req.limit, [double]$req.time, [bool]$req.corner, [bool]$req.edge, [string]$req.positions, [int]$req.holdKey, [int]$req.holdMods) }
+      'cursorPos' { $data = [Znerol.Clicker]::CursorPos() }
       'clickStop' { [Znerol.Clicker]::Stop() }
       'clickStatus' { $data = [Znerol.Clicker]::Status() }
       'net' { $data = [Znerol.Sys]::Net() }

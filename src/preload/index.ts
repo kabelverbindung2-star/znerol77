@@ -45,6 +45,10 @@ const api = {
   },
   autoclicker: {
     defaultProfiles: () => ipcRenderer.invoke('autoclicker:defaultProfiles'),
+    upgrade: (profiles: unknown[]) => ipcRenderer.invoke('autoclicker:upgrade', profiles),
+    cursor: (): Promise<{ x: number; y: number }> => ipcRenderer.invoke('autoclicker:cursor'),
+    markers: (positions: { x: number; y: number }[] | null) => ipcRenderer.invoke('autoclicker:markers', positions),
+    onMarkers: (cb: (m: { x: number; y: number; n: number }[]) => void) => subscribe('markers:update', cb),
     start: (profile: unknown) => ipcRenderer.invoke('autoclicker:start', profile),
     stop: () => ipcRenderer.invoke('autoclicker:stop'),
     status: () => ipcRenderer.invoke('autoclicker:status'),

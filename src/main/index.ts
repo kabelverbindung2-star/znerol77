@@ -13,7 +13,8 @@ import {
   type AutostartEntry
 } from './modules/autostart'
 import { listSketches, getSketch, saveSketch, deleteSketch, type Sketch } from './modules/sketches'
-import { clickerEngine, defaultProfiles, type AutoClickerProfile } from './modules/autoclicker'
+import { clickerEngine, defaultProfiles, upgradeProfile, cursorPosition, type AutoClickerProfile } from './modules/autoclicker'
+import { showMarkers, hideMarkers } from './modules/markers'
 import {
   getAudioState,
   setVolume,
@@ -331,6 +332,16 @@ function wireIpc(): void {
     }
   })
   ipcMain.handle('autoclicker:defaultProfiles', () => defaultProfiles)
+  ipcMain.handle('autoclicker:upgrade', (_e, profiles: unknown[]) => (Array.isArray(profiles) ? profiles.map(upgradeProfile) : defaultProfiles))
+  ipcMain.handle('autoclicker:cursor', async () => {
+    if (isWindows) return cursorPosition()
+    const p = screen.getCursorScreenPoint()
+    return { x: p.x, y: p.y }
+  })
+  ipcMain.handle('autoclicker:markers', (_e, positions: { x: number; y: number }[] | null) => {
+    if (positions && positions.length) showMarkers(positions, PRELOAD, (w, q) => loadPage(w, 'rest', q))
+    else hideMarkers()
+  })
   ipcMain.handle('autoclicker:start', (_e, profile: AutoClickerProfile) =>
     clickerEngine.start(profile)
   )
@@ -342,6 +353,8 @@ function wireIpc(): void {
       registeredHotkey = null
     }
     if (!accelerator || [MENU_HOTKEY, HIDE_HOTKEY, audioHotkey].includes(accelerator)) return false
+    // hold mode does not need a shortcut: the helper watches the keys itself
+    if (upgradeProfile(profile).hotkeyMode === 'hold') return true
     const ok = globalShortcut.register(accelerator, () => {
       if (clickerEngine.getStatus().running) clickerEngine.stop()
       else clickerEngine.start(profile).catch(() => undefined)
