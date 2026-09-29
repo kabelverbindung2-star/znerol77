@@ -15,8 +15,11 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
+  # the desktop icon is (re)created on every install/update, so the app can always be opened from there
+  createDesktopShortcut: always
   createStartMenuShortcut: true
+  shortcutName: ZnerolMonitor
+  runAfterFinish: true
 publish:
   provider: github
   owner: kabelverbindung2-star

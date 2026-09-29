@@ -161,6 +161,14 @@ function applyAppearance(settings: Settings): void {
   }
 }
 
+/** No rounded corners and no 1px border (Windows 11) for a window that fills a monitor. */
+function squareCorners(w: BrowserWindow): void {
+  if (!isWindows || w.isDestroyed()) return
+  const buf = w.getNativeWindowHandle()
+  const hwnd = buf.length >= 8 ? Number(buf.readBigUInt64LE(0)) : buf.readUInt32LE(0)
+  winHelper.request('squareWindow', { hwnd }, 5000).catch(() => undefined)
+}
+
 // ---------- second screen ----------
 let secondWindow: BrowserWindow | null = null
 let secondTransparent = false
@@ -198,6 +206,7 @@ function syncSecondScreen(settings: Settings, recreate = false): void {
   w.once('ready-to-show', () => {
     w.setBounds(target.workArea)
     w.showInactive()
+    squareCorners(w)
   })
   w.on('closed', () => {
     if (secondWindow === w) secondWindow = null

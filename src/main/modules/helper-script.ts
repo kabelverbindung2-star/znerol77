@@ -509,6 +509,19 @@ namespace Znerol {
       return n;
     }
 
+    // Windows 11 rounds every window and draws a thin border; the second-screen window
+    // fills its monitor, so both would only show as a frame around the picture.
+    [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+    public static string SquareWindow(long hwnd) {
+      IntPtr h = new IntPtr(hwnd);
+      int round = 1; // DWMWCP_DONOTROUND
+      int none = unchecked((int)0xFFFFFFFE); // DWMWA_COLOR_NONE
+      int a = DwmSetWindowAttribute(h, 33, ref round, 4); // DWMWA_WINDOW_CORNER_PREFERENCE
+      int b = DwmSetWindowAttribute(h, 34, ref none, 4); // DWMWA_BORDER_COLOR
+      return "{\"corner\":" + a + ",\"border\":" + b + "}";
+    }
+
     // Windows 11 "power mode" (the slider in Settings > Power): best efficiency is the quietest.
     [DllImport("powrprof.dll")] static extern uint PowerGetEffectiveOverlayScheme(out Guid scheme);
     [DllImport("powrprof.dll")] static extern uint PowerSetActiveOverlayScheme(Guid scheme);
@@ -630,6 +643,7 @@ $script:mgr = $null
 $script:asTask = $null
 $script:artKey = ''
 $script:art = $null
+$script:artTries = 0
 
 function Await($op, [Type]$type) {
   $task = $script:asTask.MakeGenericMethod($type).Invoke($null, @($op))
@@ -645,6 +659,9 @@ function Init-Media {
   })[0]
   [void][Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime]
   [void][Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType = WindowsRuntime]
+  [void][Windows.Storage.Streams.DataReader, Windows.Storage.Streams, ContentType = WindowsRuntime]
+  [void][Windows.Storage.Streams.DataWriter, Windows.Storage.Streams, ContentType = WindowsRuntime]
+  [void][Windows.Storage.Streams.InMemoryRandomAccessStream, Windows.Storage.Streams, ContentType = WindowsRuntime]
   $script:mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
 }
 
@@ -657,6 +674,32 @@ function Pick-Session {
   return $sessions | Select-Object -First 1
 }
 
+# WinRT stream -> byte[] (DataReader works in Windows PowerShell 5.1, AsStreamForRead does not always)
+function Read-StreamBytes($stream) {
+  $size = [uint32]$stream.Size
+  if ($size -le 0 -or $size -ge 3000000) { return $null }
+  $reader = New-Object Windows.Storage.Streams.DataReader ($stream.GetInputStreamAt(0))
+  [void](Await ($reader.LoadAsync($size)) ([uint32]))
+  $bytes = New-Object byte[] $size
+  $reader.ReadBytes($bytes)
+  $reader.Dispose()
+  return ,$bytes
+}
+
+# CI check for Read-StreamBytes: write known bytes into a WinRT memory stream, read them back
+function Stream-SelfTest {
+  Init-Media
+  $mem = New-Object Windows.Storage.Streams.InMemoryRandomAccessStream
+  $writer = New-Object Windows.Storage.Streams.DataWriter ($mem.GetOutputStreamAt(0))
+  $data = [byte[]](1..200 | ForEach-Object { $_ % 256 })
+  $writer.WriteBytes($data)
+  [void](Await ($writer.StoreAsync()) ([uint32]))
+  [void](Await ($writer.FlushAsync()) ([bool]))
+  $back = Read-StreamBytes $mem
+  $ok = ($back -ne $null) -and ($back.Length -eq 200) -and ($back[199] -eq 200)
+  return ('{"ok":' + $ok.ToString().ToLower() + ',"length":' + $(if ($back) { $back.Length } else { 0 }) + '}')
+}
+
 function Media-Info {
   Init-Media
   $s = Pick-Session
@@ -667,14 +710,20 @@ function Media-Info {
   if ($key -ne $script:artKey) {
     $script:artKey = $key
     $script:art = $null
+    $script:artTries = 0
+  }
+  # players (Spotify) often hand over the cover a moment after the title: try a few times
+  if (-not $script:art -and $script:artTries -lt 6 -and $p.Thumbnail) {
+    $script:artTries++
     try {
-      if ($p.Thumbnail) {
-        $stream = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
-        $net = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($stream)
-        $ms = New-Object System.IO.MemoryStream
-        $net.CopyTo($ms)
-        if ($ms.Length -gt 0 -and $ms.Length -lt 2000000) { $script:art = 'data:image/jpeg;base64,' + [Convert]::ToBase64String($ms.ToArray()) }
+      $stream = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
+      $bytes = Read-StreamBytes $stream
+      if ($bytes) {
+        $mime = [string]$stream.ContentType
+        if (-not $mime -or $mime -notlike 'image/*') { $mime = 'image/jpeg' }
+        $script:art = 'data:' + $mime + ';base64,' + [Convert]::ToBase64String($bytes)
       }
+      $stream.Dispose()
     } catch { $script:art = $null }
   }
   $info = [ordered]@{
@@ -727,6 +776,7 @@ while ($true) {
       'sessionMute' { [Znerol.Win]::SessionMute([int]$req.pid, [bool]$req.arg) }
       'sessionVolume' { [Znerol.Win]::SessionVolume([int]$req.pid, [int]$req.arg) }
       'media' { $data = Media-Info }
+      'streamSelfTest' { $data = Stream-SelfTest }
       'mediaControl' { $data = Media-Control ([string]$req.arg) }
       'click' { [Znerol.Win]::Click([string]$req.button, [bool]$req.move, [int]$req.x, [int]$req.y, [bool]$req.double) }
       'clickStart' { [Znerol.Clicker]::Start([string]$req.button, [bool]$req.double, [bool]$req.move, [int]$req.x, [int]$req.y, [double]$req.interval, [double]$req.jitter, [long]$req.limit) }
@@ -739,6 +789,7 @@ while ($true) {
       'setPriority' { [Znerol.Sys]::SetPriority([int]$req.pid, [string]$req.arg) }
       'monitorOff' { [Znerol.Sys]::MonitorOff() }
       'gpu' { $data = [Znerol.Sys]::Gpu() }
+      'squareWindow' { $data = [Znerol.Sys]::SquareWindow([long]$req.hwnd) }
       'minimizeOthers' { $data = [string][Znerol.Sys]::MinimizeOthers([int]$req.pid) }
       'restoreMinimized' { $data = [string][Znerol.Sys]::RestoreMinimized() }
       'powerMode' { $data = [Znerol.Sys]::PowerMode() }

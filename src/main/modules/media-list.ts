@@ -2,22 +2,17 @@
 // (public domain, CC0, CC BY, CC BY-SA). Author and licence are read from Commons at runtime and
 // shown in the app. A title that disappears from Commons is simply skipped.
 
-/** Nature videos: waterfalls, clouds, sea, mountains, glaciers, northern lights, Earth from space. */
+/** Nature videos (longer films, 1-60 min): waterfalls, mountains, glaciers, northern lights, Earth from space. */
 export const NATURE_VIDEOS = [
-  'Rheinfall (Rhine Falls).webm',
   'Aerial imagery of fjords and rivers in Arctic Norway.webm',
   'Krimmler Wasserfaelle Waterfall in Austria Biggest from Europe 380m at the top.webm',
   'Rhaeadr Ewynnol, Betws-y-coed - waterfall in Wales.webm',
   'Niagara waterfalls with rainbow 2015.webm',
   'Rapids and Falls of the Youghiogheny at Ohiopyle.webm',
-  'Wolken Zeitraffer - Clouds Timelapse 4K HD 24FPS.webm',
   '2018-07-15 Timelapse-nuages-belfort.webm',
-  'Rialto Beach Waves 2022.webm',
-  'Aerial view of sand beach. Top view sea waves. Drone footage.webm',
   'Aerial views of the Swiss Alps.webm',
   'Flight through the Alps in Switzerland.webm',
   'Epic Alaska Glacier Icebergs 4K Creative Commons.webm',
-  'Mount Fuji at sunset (timelapse).webm',
   'Aurora borealis timelapse.webm',
   'Northern Lights in Motion- Timelapse of a Severe G4 Storm in 4K.webm',
   'Europe from Space in 4K.webm',
@@ -28,7 +23,19 @@ export const NATURE_VIDEOS = [
   'Blue Mountains, Australia (video).webm',
   'Lake Bled Slovenia - by Yuneec Typhoon Q500 4k.webm',
   'Lost between the Atacama Desert and the Andes.webm',
-  'Dune du Pilat 2018.webm',
+  'The Earth- 4K Extended Edition.webm',
+  'Flying above the Alps • LENTO YLI ALPPIEN (HD1080p).webm',
+  'Drone flyover video of Myoko-Togakushi Renzan National Park.webm',
+  'Toxaway Falls - Lake Toxaway, North Carolina -- 4K - Drone -- DJI Mavic Pro 2. Footage.webm',
+  'Miradero Drone Flight - Puerto Rico\'s Hidden Gem in 4k!.webm',
+  'Fall foliage colors in Virginia - 4k Drone view.webm',
+  'Catawba River - Great Falls, Lancaster County, South Carolina -- 4K - Drone DJI Mavic Pro 2. Footage.webm',
+  'Italy and Switzerland by Drone.webm',
+  'Phan Thiet , Vietnam Red & White Sand Dunes.webm',
+  'Drone flyover video of Mount Atago.webm',
+  'Alexander Gerst’s Earth timelapses (2017 reissue).webm',
+  'Worthington Glacier, Right Side, Alaska, 4K Creative Commons 4.0.webm',
+  'Whitewater Falls - Nantahala National Forest, North Carolina --4K Drone -- DJI Mavic Pro 2. Footage.webm',
   'Snowdonia by drone.webm'
 ]
 

@@ -111,6 +111,15 @@ try {
   console.log('minimizeOthers', JSON.stringify(mini), 'restoreMinimized', JSON.stringify(back), 'powerMode', JSON.stringify(mode))
   if (!mini.ok || !back.ok || !mode.ok) throw new Error('rest mode commands failed')
 
+  // album covers (Spotify): WinRT stream -> bytes, the way Media-Info reads the thumbnail
+  const st = await ask(h, 'streamSelfTest')
+  console.log('streamSelfTest', JSON.stringify(st))
+  if (!st.ok || !st.data.ok) throw new Error('reading WinRT streams failed: ' + JSON.stringify(st))
+
+  const sq = await ask(h, 'squareWindow', { hwnd: 0 })
+  console.log('squareWindow (no window, error code expected)', JSON.stringify(sq))
+  if (!sq.ok) throw new Error('squareWindow did not answer')
+
   // 2) the 500 clicks/s clicker thread: start, count, stop
   const start = await ask(h, 'clickStart', { button: 'left', double: false, move: false, x: 0, y: 0, interval: 2, jitter: 0, limit: 0 })
   if (!start.ok) throw new Error('clickStart failed: ' + JSON.stringify(start))

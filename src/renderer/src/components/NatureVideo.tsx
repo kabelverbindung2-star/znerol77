@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MediaItem } from '../lib/types'
 
-const MIN_MS = 60_000 // short clips loop until a minute has passed
-const MAX_MS = 5 * 60_000 // long films change after five minutes
+const MIN_MS = 90_000 // short clips loop until 1.5 minutes have passed
+const MAX_MS = 20 * 60_000 // long films play up to 20 minutes before the next one
 
 /**
  * Full-screen nature videos that change now and then with a slow cross-fade.
