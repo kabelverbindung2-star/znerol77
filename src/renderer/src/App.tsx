@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, type CSSProperties } from 'react'
 import Background from './components/Background'
 import RestScreen from './components/RestScreen'
 import VideoBackground from './components/VideoBackground'
+import YouTubeBackground from './components/YouTubeBackground'
 import VideoPicker from './components/VideoPicker'
 import MusicPicker from './components/MusicPicker'
 import type { MenuItem } from './components/ui/ContextMenu'
@@ -98,6 +99,9 @@ function MainApp(): JSX.Element {
   const showPicture = glass && (background === 'photos' || background === 'fixed')
   const transparent = glass && background === 'transparent'
   const videoBg = glass && background === 'video'
+  const ytId = glass && background === 'youtube' ? settings.youtube.current : null
+  // sound only from the main window, so two screens never play it twice
+  const muted = SECOND || !settings.rest.sound
   // only the main window rotates the picture; the second screen follows it
   const walls = useWallpapers(settings, update, !SECOND && showPicture && background === 'photos')
   const nav = settings.appearance.nav ?? 'top'
@@ -178,12 +182,16 @@ function MainApp(): JSX.Element {
   }
   const backgroundItems = (): MenuItem[] => [
     { label: 'Naturvideos', active: glass && background === 'video', onClick: () => setBackground('video') },
+    ...(settings.youtube.current
+      ? [{ label: 'YouTube-Video', active: !!ytId, onClick: () => setBackground('youtube') }]
+      : []),
     { label: 'Wechselnde Bilder', active: glass && background === 'photos', onClick: () => setBackground('photos') },
     { label: 'Festes Bild', active: glass && background === 'fixed', onClick: () => setBackground('fixed') },
     { label: 'Kein Bild', active: glass && background === 'plain', onClick: () => setBackground('plain') },
     { label: 'Durchsichtig', active: transparent, onClick: () => setBackground('transparent') },
     { label: '', separator: true },
-    { label: 'Video auswählen …', onClick: () => setVideoPicker(true) },
+    { label: 'Video / YouTube auswählen …', onClick: () => setVideoPicker(true) },
+    { label: settings.rest.sound ? 'Video-Ton aus' : 'Video-Ton an', onClick: () => update({ rest: { sound: !settings.rest.sound } }) },
     ...(showPicture && !SECOND ? [{ label: 'Bild auswählen …', onClick: () => setPanelOpen(true) }] : []),
     { label: '', separator: true },
     ...musicItems(),
@@ -199,7 +207,7 @@ function MainApp(): JSX.Element {
   const musicPickerEl = musicPicker && <MusicPicker onClose={() => setMusicPicker(false)} />
   const videoPickerEl = videoPicker && (
     <VideoPicker
-      selected={settings.rest.videoId}
+      selected={ytId ? `yt:${ytId}` : settings.rest.videoId}
       onSelect={(id) => {
         update({ rest: { videoId: id } })
         if (!videoBg) setBackground('video')
@@ -225,7 +233,8 @@ function MainApp(): JSX.Element {
     return (
       <div className={cls} style={style} onContextMenu={onBackgroundMenu}>
         {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
-      {videoBg && <VideoBackground dim={settings.wallpaper.dim} pinnedId={settings.rest.videoId} />}
+      {videoBg && <VideoBackground dim={settings.wallpaper.dim} pinnedId={settings.rest.videoId} muted={muted} />}
+      {ytId && <YouTubeBackground id={ytId} muted={muted} dim={settings.wallpaper.dim} />}
         <div className="drag-strip" />
         <main className="content content-uebersicht">
           <Uebersicht
@@ -264,7 +273,8 @@ function MainApp(): JSX.Element {
   return (
     <div className={cls} style={style} onContextMenu={onBackgroundMenu}>
       {showPicture && <Background wallpaper={walls.current} dim={settings.wallpaper.dim} />}
-      {videoBg && <VideoBackground dim={settings.wallpaper.dim} pinnedId={settings.rest.videoId} />}
+      {videoBg && <VideoBackground dim={settings.wallpaper.dim} pinnedId={settings.rest.videoId} muted={muted} />}
+      {ytId && <YouTubeBackground id={ytId} muted={muted} dim={settings.wallpaper.dim} />}
 
       <div className="drag-strip" />
       {CUSTOM_FRAME && <WindowControls />}

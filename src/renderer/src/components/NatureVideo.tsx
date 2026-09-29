@@ -14,8 +14,11 @@ export default function NatureVideo({
   paused = false,
   pinnedId = null,
   seeded = false,
+  muted = true,
   onCurrent
 }: {
+  /** play the film's own sound */
+  muted?: boolean
   /** start at a film picked from the current hour, so several screens show the same one */
   seeded?: boolean
   videos: MediaItem[]
@@ -78,7 +81,7 @@ export default function NatureVideo({
       key={current.id}
       className={`nature-video ${shown === index ? 'visible' : ''}`}
       src={current.url}
-      muted
+      muted={muted}
       loop
       autoPlay={!paused}
       playsInline

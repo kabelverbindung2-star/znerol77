@@ -15,6 +15,7 @@ import {
 import { listSketches, getSketch, saveSketch, deleteSketch, type Sketch } from './modules/sketches'
 import { clickerEngine, defaultProfiles, upgradeProfile, cursorPosition, type AutoClickerProfile } from './modules/autoclicker'
 import { showMarkers, hideMarkers } from './modules/markers'
+import { youtubeInfo, allowYoutubeEmbeds } from './modules/youtube'
 import {
   getAudioState,
   setVolume,
@@ -471,6 +472,8 @@ function wireIpc(): void {
   ipcMain.handle('rest:stop', () => stopRest())
   ipcMain.handle('display:off', () => displayOff())
   ipcMain.handle('media:list', (_e, force?: boolean) => getMediaLibrary(Boolean(force)))
+  ipcMain.handle('youtube:info', (_e, input: string) => youtubeInfo(String(input ?? '')))
+  ipcMain.handle('app:openYoutube', () => shell.openExternal('https://www.youtube.com/results?search_query=4k+nature+relaxing'))
   ipcMain.handle('radio:stations', (_e, force?: boolean) => listStations(Boolean(force)))
   ipcMain.handle('radio:search', (_e, query: string, tag?: string) => searchStations(String(query ?? ''), tag ? String(tag) : undefined))
   ipcMain.handle('radio:genres', () => radioGenres())
@@ -498,6 +501,7 @@ function wireIpc(): void {
 
 app.whenReady().then(async () => {
   handleWallpaperProtocol()
+  allowYoutubeEmbeds()
   setWallpaperListener(allWindows)
   wireIpc()
   startSystemQueries()

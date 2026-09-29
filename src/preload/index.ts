@@ -140,6 +140,10 @@ const api = {
     genres: (): Promise<{ label: string; tag: string }[]> => ipcRenderer.invoke('radio:genres'),
     played: (id: string) => ipcRenderer.invoke('radio:played', id)
   },
+  youtube: {
+    info: (input: string): Promise<{ id: string; title: string }> => ipcRenderer.invoke('youtube:info', input),
+    openSite: () => ipcRenderer.invoke('app:openYoutube')
+  },
   spotify: {
     open: () => ipcRenderer.invoke('app:openSpotify')
   },

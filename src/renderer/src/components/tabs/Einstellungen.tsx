@@ -178,6 +178,7 @@ export default function Einstellungen({ settings, update, openWallpapers, hotkey
                 { value: 'photos', label: 'Wechselnde Bilder' },
                 { value: 'fixed', label: 'Festes Bild' },
                 { value: 'video', label: 'Naturvideos' },
+                ...(settings.youtube.current ? [{ value: 'youtube' as const, label: 'YouTube' }] : []),
                 { value: 'plain', label: 'Kein Bild' },
                 { value: 'transparent', label: 'Durchsichtig' }
               ]}

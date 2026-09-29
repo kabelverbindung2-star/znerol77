@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettings } from '../lib/useSettings'
 import { useMedia } from '../lib/useMedia'
 import NatureVideo from './NatureVideo'
+import YouTubeBackground from './YouTubeBackground'
 import VideoPicker from './VideoPicker'
 import MusicPicker from './MusicPicker'
 import Switch from './ui/Switch'
@@ -14,7 +15,7 @@ import type { MediaItem, Settings, Weather } from '../lib/types'
 const noop = async (): Promise<void> => undefined
 const LONG_PRESS_MS = 550
 
-type Show = 'video' | 'picture' | 'black'
+type Show = 'video' | 'youtube' | 'picture' | 'black'
 
 function Choice<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }): JSX.Element {
   return (
@@ -44,8 +45,10 @@ function RestSettings({
   const [musicPicker, setMusicPicker] = useState(false)
   const owner = calmMusic.isOwner()
   const music = calmMusic.useCalmMusic()
-  const show: Show = rest.black ? 'black' : rest.video ? 'video' : 'picture'
+  const show: Show = rest.black ? 'black' : rest.youtube ? 'youtube' : rest.video ? 'video' : 'picture'
   const chosen = media.videos.find((v) => v.id === rest.videoId)
+  const { settings: all } = useSettings()
+  const yt = all.youtube
   return (
     <div className="rest-settings glass" role="dialog" aria-label="Ruhemodus einstellen">
       <div className="rest-settings-head">
@@ -59,18 +62,24 @@ function RestSettings({
         <Choice<Show>
           value={show}
           options={[
-            { value: 'video', label: 'Naturvideo' },
+            { value: 'video', label: 'Natur' },
+            { value: 'youtube', label: 'YouTube' },
             { value: 'picture', label: 'Bild' },
             { value: 'black', label: 'Schwarz' }
           ]}
-          onChange={(v) => update({ rest: { video: v === 'video', black: v === 'black' } })}
+          onChange={(v) => {
+            update({ rest: { video: v === 'video', youtube: v === 'youtube', black: v === 'black' } })
+            if (v === 'youtube' && !yt.current) setPicker(true)
+          }}
         />
       </div>
-      {show === 'video' && (
+      {(show === 'video' || show === 'youtube') && (
         <div className="settings-row">
           <div>
             <div>Video</div>
-            <div className="quick-sub">{chosen ? chosen.title : 'wechselt alle paar Minuten'}</div>
+            <div className="quick-sub">
+              {show === 'youtube' ? (yt.items.find((x) => x.id === yt.current)?.title ?? 'noch keins gewählt') : chosen ? chosen.title : 'wechselt alle paar Minuten'}
+            </div>
           </div>
           <button type="button" className="btn btn-sm" onClick={() => setPicker(true)}>
             Auswählen
@@ -103,6 +112,13 @@ function RestSettings({
           ]}
           onChange={(v) => update({ rest: { clock: v } })}
         />
+      </div>
+      <div className="settings-row">
+        <div>
+          <div>Video-Ton</div>
+          <div className="quick-sub">nur auf dem Hauptbildschirm</div>
+        </div>
+        <Switch on={rest.sound} onToggle={(v) => update({ rest: { sound: v } })} />
       </div>
       <div className="settings-row">
         <div>Sekunden zeigen</div>
@@ -140,9 +156,10 @@ function RestSettings({
       {musicPicker && <MusicPicker onClose={() => setMusicPicker(false)} />}
       {picker && (
         <VideoPicker
-          selected={rest.videoId}
+          context="rest"
+          selected={show === 'youtube' && yt.current ? `yt:${yt.current}` : rest.videoId}
           onSelect={(id) => {
-            update({ rest: { videoId: id, video: true, black: false } })
+            update({ rest: { videoId: id, video: true, youtube: false, black: false } })
             setPicker(false)
           }}
           onClose={() => setPicker(false)}
@@ -171,7 +188,10 @@ export default function RestScreen({ index: rawIndex }: { index: number }): JSX.
   const [panel, setPanel] = useState(false)
   const press = useRef<{ timer: ReturnType<typeof setTimeout>; long: boolean } | null>(null)
   const rest = settings.rest
-  const withVideo = !rest.black && rest.video && media.videos.length > 0
+  const ytId = !rest.black && rest.youtube ? settings.youtube.current : null
+  const withVideo = !rest.black && !ytId && rest.video && media.videos.length > 0
+  // sound only where the main app runs (never twice)
+  const soundHere = rest.sound && calmMusic.isOwner() && index === 0
 
   // only re-render when what is shown changes (seconds off = once a minute)
   useEffect(() => {
@@ -226,7 +246,7 @@ export default function RestScreen({ index: rawIndex }: { index: number }): JSX.
 
   return (
     <div
-      className={`rest-screen ${index === 0 ? 'main' : 'side'} ${withVideo ? 'with-video' : ''} ${rest.black ? 'black' : ''}`}
+      className={`rest-screen ${index === 0 ? 'main' : 'side'} ${withVideo || ytId ? 'with-video' : ''} ${rest.black ? 'black' : ''}`}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onContextMenu={(e) => {
@@ -234,8 +254,9 @@ export default function RestScreen({ index: rawIndex }: { index: number }): JSX.
         setPanel(true)
       }}
     >
-      {!rest.black && !(withVideo && film) && <img className="rest-bg" src={src} alt="" draggable={false} />}
-      {withVideo && <NatureVideo videos={media.videos} offset={same ? 0 : index * 7} seeded={same} pinnedId={rest.videoId} onCurrent={onFilm} />}
+      {!rest.black && !ytId && !(withVideo && film) && <img className="rest-bg" src={src} alt="" draggable={false} />}
+      {ytId && <YouTubeBackground id={ytId} muted={!soundHere} />}
+      {withVideo && <NatureVideo videos={media.videos} offset={same ? 0 : index * 7} seeded={same} pinnedId={rest.videoId} muted={!soundHere} onCurrent={onFilm} />}
       {rest.clock === 'corner' && (
         <div className="rest-corner">
           <div className="rest-date">

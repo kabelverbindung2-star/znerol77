@@ -13,7 +13,7 @@ export interface Settings {
   appearance: {
     style: 'glass' | 'basic'
     mode: 'dark' | 'light' // used by the basic style
-    background: 'photos' | 'fixed' | 'plain' | 'transparent' | 'video'
+    background: 'photos' | 'fixed' | 'plain' | 'transparent' | 'video' | 'youtube'
     nav: 'left' | 'top' | 'right' // where the navigation bar sits
   }
   wallpaper: {
@@ -55,6 +55,12 @@ export interface Settings {
     black: boolean // plain black screen, the quietest option
     videoId: string | null // one chosen film; null = change now and then
     span: 'one' | 'same' | 'each' // several monitors: one big video across all, the same on each, different ones
+    youtube: boolean // rest mode shows the chosen YouTube video
+    sound: boolean // videos play with sound (only in the main window)
+  }
+  youtube: {
+    items: { id: string; title: string }[] // saved YouTube videos
+    current: string | null
   }
   accent: string
 }
@@ -90,7 +96,8 @@ const DEFAULTS: Settings = {
   weather: null,
   dashboard: { widgets: DEFAULT_WIDGETS, widgets2: DEFAULT_WIDGETS_2 },
   screens: { dual: false, displayId: null },
-  rest: { video: true, music: false, clock: 'corner', seconds: false, black: false, videoId: null, span: 'one' },
+  rest: { video: true, music: false, clock: 'corner', seconds: false, black: false, videoId: null, span: 'one', youtube: false, sound: false },
+  youtube: { items: [], current: null },
   performance: { intervalSec: 2 },
   accent: '#C6F432'
 }
@@ -113,6 +120,7 @@ export async function getSettings(): Promise<Settings> {
       dashboard: { widgets, widgets2 },
       screens: { ...DEFAULTS.screens, ...(raw.screens ?? {}) },
       rest: { ...DEFAULTS.rest, ...(raw.rest ?? {}) },
+      youtube: { ...DEFAULTS.youtube, ...(raw.youtube ?? {}) },
       performance: { ...DEFAULTS.performance, ...(raw.performance ?? {}) },
       accent: typeof raw.accent === 'string' ? raw.accent : DEFAULTS.accent
     }
@@ -135,6 +143,7 @@ export type SettingsPatch = {
   dashboard?: Partial<Settings['dashboard']>
   screens?: Partial<Settings['screens']>
   rest?: Partial<Settings['rest']>
+  youtube?: Partial<Settings['youtube']>
   performance?: Partial<Settings['performance']>
   accent?: string
 }
@@ -154,6 +163,7 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
     dashboard: { ...current.dashboard, ...(patch.dashboard ?? {}) },
     screens: { ...current.screens, ...(patch.screens ?? {}) },
     rest: { ...current.rest, ...(patch.rest ?? {}) },
+    youtube: { ...current.youtube, ...(patch.youtube ?? {}) },
     performance: { ...current.performance, ...(patch.performance ?? {}) },
     accent: patch.accent ?? current.accent
   }

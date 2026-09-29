@@ -38,7 +38,7 @@ export interface Settings {
   appearance: {
     style: 'glass' | 'basic'
     mode: 'dark' | 'light'
-    background: 'photos' | 'fixed' | 'plain' | 'transparent' | 'video'
+    background: 'photos' | 'fixed' | 'plain' | 'transparent' | 'video' | 'youtube'
     nav: 'left' | 'top' | 'right'
   }
   wallpaper: {
@@ -63,7 +63,10 @@ export interface Settings {
     black: boolean
     videoId: string | null
     span: 'one' | 'same' | 'each'
+    youtube: boolean
+    sound: boolean
   }
+  youtube: { items: { id: string; title: string }[]; current: string | null }
   performance: { intervalSec: number }
   accent: string
 }

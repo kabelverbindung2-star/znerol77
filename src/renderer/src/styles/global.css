@@ -4104,7 +4104,6 @@ button.tool-icon:hover {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 1200px;
 }
 
 .ac-profiles {
@@ -4316,4 +4315,239 @@ button.tool-icon:hover {
   place-items: center;
   font-size: 11px;
   font-weight: 700;
+}
+
+/* ---------- Werkzeuge: calm board you can arrange ---------- */
+.tools-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: dense;
+  gap: 12px;
+  align-items: start;
+}
+
+.tool-tile {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 18px;
+  border-radius: var(--radius);
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  min-width: 0;
+}
+
+.app.no-glass .tool-tile,
+.app.theme-basic .tool-tile {
+  background: var(--solid-card);
+}
+
+.app:not(.no-glass):not(.theme-basic) .tool-tile {
+  backdrop-filter: blur(var(--blur));
+}
+
+.tool-tile.w-s {
+  grid-column: span 1;
+}
+
+.tool-tile.w-l {
+  grid-column: span 4;
+}
+
+.tool-tile.tall {
+  grid-row: span 2;
+}
+
+@media (max-width: 1000px) {
+  .tools-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tool-tile,
+  .tool-tile.w-l {
+    grid-column: span 2;
+  }
+  .tool-tile.w-s {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .tools-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tool-tile,
+  .tool-tile.w-s,
+  .tool-tile.w-l {
+    grid-column: span 1;
+  }
+}
+
+.tool-tile-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tool-glyph {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--fill-2);
+  color: var(--text);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+button.tool-glyph:hover {
+  background: var(--fill-3);
+  transform: scale(1.08);
+}
+
+.tool-tile-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-tile-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.tool-tile-title.big {
+  font-size: 20px;
+}
+
+.icon-btn.subtle {
+  opacity: 0.55;
+}
+
+.tool-tile:hover .icon-btn.subtle {
+  opacity: 1;
+}
+
+.tools-board.editing .tool-tile {
+  cursor: grab;
+  outline: 2px dashed var(--glass-line);
+  outline-offset: -2px;
+}
+
+.tool-tile.dragging {
+  opacity: 0.4;
+}
+
+.tool-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tools-hidden {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+/* calmer tool controls: accent only on the main button */
+.tool-tile .calc-key.eq,
+.tool-focus .calc-key.eq {
+  background: var(--accent);
+}
+
+.tool-tile .calc-key.clear,
+.tool-focus .calc-key.clear {
+  background: var(--fill-3);
+  color: var(--danger);
+}
+
+.tool-focus {
+  width: min(980px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 22px 26px 26px;
+  border-radius: 22px;
+  background: var(--menu-bg);
+  border: 1px solid var(--glass-line);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tool-focus .tool-glyph {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+/* ---------- YouTube as background ---------- */
+.yt-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+/* 16:9 player scaled so it always covers the whole area */
+.yt-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100vw, 177.78vh);
+  height: max(100vh, 56.25vw);
+  transform: translate(-50%, -50%);
+  border: 0;
+  pointer-events: none;
+}
+
+.rest-screen .yt-bg {
+  z-index: 0;
+}
+
+.video-tabs {
+  margin: 10px 0 4px;
+  max-width: 320px;
+}
+
+.yt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.yt-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.yt-sound {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.yt-sound .quick-sub {
+  flex: 1;
+}
+
+.video-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
 }
