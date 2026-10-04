@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gefahrensymbole lernen (GHS)</title>
+<meta name="description" content="Lerne die 9 GHS-Gefahrenpiktogramme: Bedeutung, Beispiele, Sicherheitstipps und Quiz.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>⚠️ Gefahrensymbole lernen</h1>
+  <p>Die 9 GHS-Piktogramme auf Chemikalien-Etiketten – Bedeutung, Beispiele, Quiz.</p>
+  <nav>
+    <a href="#symbole">Symbole</a>
+    <a href="#karten">Lernkarten</a>
+    <a href="#quiz">Quiz</a>
+    <a href="#hinweise">Hinweise</a>
+  </nav>
+</header>
+
+<main>
+  <section id="symbole">
+    <h2>Die 9 Piktogramme</h2>
+    <input id="search" type="search" placeholder="Suchen, z. B. „ätzend“, „KMR“, „Druck“ …" aria-label="Suchen">
+    <div id="grid" class="grid"></div>
+  </section>
+
+  <section id="karten">
+    <h2>Lernkarten</h2>
+    <p>Klick auf die Karte, um sie umzudrehen. Was bedeutet das Symbol?</p>
+    <div id="flash" class="flash" tabindex="0" role="button" aria-label="Karte umdrehen"></div>
+    <div class="row">
+      <button id="prev">← Zurück</button>
+      <button id="shuffle">Mischen</button>
+      <button id="next">Weiter →</button>
+    </div>
+  </section>
+
+  <section id="quiz">
+    <h2>Quiz</h2>
+    <div id="quizbox" class="quizbox"></div>
+  </section>
+
+  <section id="hinweise">
+    <h2>Gut zu wissen</h2>
+    <ul class="notes">
+      <li><strong>Brandfördernd ≠ entzündbar:</strong> „Entzündbar“ (GHS02) brennt selbst. „Brandfördernd“ (GHS03, Flamme über Kreis) fördert Brände anderer Stoffe, meist durch Sauerstoff-Abgabe.</li>
+      <li><strong>„Mindergiftig“</strong> ist der alte Ausdruck. Heute heißt GHS07 (Ausrufezeichen): <em>reizend / gesundheitsschädlich</em>.</li>
+      <li><strong>KMR</strong> = krebserzeugend, keimzellmutagen, reproduktionstoxisch. Das gehört zu GHS08 („Gesundheitsgefahr“), zusammen mit Atemwegssensibilisierung und Organschäden.</li>
+      <li><strong>Hautätzend und schwere Augenschädigung</strong> gehören beide zu GHS05 (Ätzwirkung). GHS05 steht auch für metallkorrosive Stoffe.</li>
+      <li><strong>Gewässergefährdend</strong> = GHS09 („Umwelt“). Eine Gewässerfärbung ist kein eigenes Gefahrensymbol.</li>
+      <li>Auf dem Etikett stehen zusätzlich <strong>Signalwort</strong> („Gefahr“ / „Achtung“), <strong>H-Sätze</strong> (Gefahrenhinweise) und <strong>P-Sätze</strong> (Sicherheitshinweise).</li>
+    </ul>
+    <p class="small">Diese Seite dient dem Lernen und ersetzt nicht das Sicherheitsdatenblatt (SDB) oder die Betriebsanweisung. Im Zweifel: Etikett und SDB lesen, Lehrkraft / Vorgesetzte fragen.</p>
+  </section>
+</main>
+
+<footer>Lernseite zu GHS/CLP-Piktogrammen · Alle Angaben ohne Gewähr</footer>
+<script src="app.js"></script>
+</body>
+</html>
