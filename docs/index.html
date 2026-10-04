@@ -198,6 +198,33 @@ kbd{font:600 .78rem ui-monospace,Menlo,monospace;border:1px solid var(--line);bo
 footer{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:20px 40px;color:var(--muted);font-size:.85rem}
 
 .view[hidden]{display:none}
+
+/* Wecker */
+.alarm-pill{border:0;background:var(--red);color:#fff;font-weight:700;font-size:.85rem;padding:6px 12px;border-radius:999px;cursor:pointer;font-variant-numeric:tabular-nums;white-space:nowrap}
+.alarm-pill.paused{background:var(--bg2);color:var(--muted)}
+.alarm-status{display:flex;align-items:center;gap:18px;padding:18px;border-radius:18px;background:var(--bg);margin-bottom:22px}
+.alarm-status .clock{font:800 2.6rem/1 var(--display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;min-width:4.2ch}
+.alarm-status .st{flex:1;min-width:0}
+.alarm-status .st b{display:block;font-size:1.05rem}
+.alarm-status .st span{color:var(--muted);font-size:.9rem}
+.alarm-status.on .clock{color:var(--red-ink)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:1px}
+.on .dot{background:var(--ok);box-shadow:0 0 0 4px var(--ok-soft)}
+.set{display:grid;grid-template-columns:150px minmax(0,1fr);gap:8px 16px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.set-l{font-weight:700}
+.set-l small{display:block;font-weight:500;color:var(--muted);font-size:.82rem}
+.set .seg{margin:0}
+.set input[type=range]{width:min(240px,100%);accent-color:var(--red)}
+.how{margin:18px 0 0;padding:16px 18px;border-radius:16px;background:var(--bg);color:var(--muted);font-size:.92rem}
+.how b{color:var(--ink)}
+.how ul{margin:6px 0 0;padding-left:18px}
+.alarm-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.alarm-actions .btn{flex:1 1 160px}
+#adlg .dlg{padding:24px}
+#adlg .ring{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--red-ink);margin-bottom:12px}
+#adlg .ring span{font-size:1.4rem;display:inline-block;animation:wiggle .5s ease-in-out 4}
+@keyframes wiggle{25%{transform:rotate(-14deg)}75%{transform:rotate(14deg)}}
+
 section+section{margin-top:56px}
 
 @media (max-width:860px){
@@ -206,6 +233,9 @@ section+section{margin-top:56px}
   .levels{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:640px){
+  .set{grid-template-columns:minmax(0,1fr)}
+  .alarm-status .clock{font-size:2rem}
+  .nav button{padding:6px 6px}
   body{font-size:16px}
   .bar{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--bg)}
   .q-head .btn{padding-inline:6px;font-size:.9rem}
@@ -238,7 +268,9 @@ section+section{margin-top:56px}
       <button role="tab" id="t-start" data-v="start" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Übersicht</button>
       <button role="tab" id="t-karten" data-v="karten" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="15" height="14" rx="2"/><path d="M7 3h13a2 2 0 0 1 2 2v11"/></svg>Lernkarten</button>
       <button role="tab" id="t-quiz" data-v="quiz" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg>Quiz</button>
+      <button role="tab" id="t-wecker" data-v="wecker" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M5 3 2 6M19 3l3 3"/></svg>Wecker</button>
     </nav>
+    <button class="alarm-pill" id="alarm-pill" hidden aria-label="Wecker läuft, zu den Einstellungen">⏰ <span id="pill-time">2:00</span></button>
   </div>
 </header>
 
@@ -293,11 +325,17 @@ section+section{margin-top:56px}
   <div class="view" id="v-quiz" hidden>
     <div id="quiz"></div>
   </div>
+  <!-- Wecker -->
+  <div class="view" id="v-wecker" hidden>
+    <div class="sec-h" style="justify-content:center;text-align:center"><div><h2>Lern-Wecker</h2><p class="sub">Während du etwas anderes machst, klingelt es regelmäßig und du bekommst eine Frage.</p></div></div>
+    <div class="panel-box alarm" id="alarm"></div>
+  </div>
 </main>
 
 <footer>Piktogramme nach GHS/CLP (UN, gemeinfrei; Dateien aus dem npm-Paket @ghs-hazard-pictograms, MIT). Angaben ohne Gewähr.</footer>
 
 <dialog id="dlg" aria-labelledby="dlg-title"></dialog>
+<dialog id="adlg" aria-label="Wecker-Frage"></dialog>
 
 <script>
 'use strict';
@@ -391,7 +429,7 @@ const stars = n => { let s = ''; for (let i = 0; i < 3; i++) s += i < n ? '<b>�
 const starsFor = score => score >= 9 ? 3 : score >= 7 ? 2 : score >= 5 ? 1 : 0;
 
 // Ansichten
-const VIEWS = ['start', 'karten', 'quiz'];
+const VIEWS = ['start', 'karten', 'quiz', 'wecker'];
 function show(v) {
   if (!VIEWS.includes(v)) v = 'start';
   VIEWS.forEach(x => { $('v-' + x).hidden = x !== v; });
@@ -629,11 +667,14 @@ function finishTyped(res, raw) {
   const ok = res !== 'wrong';
   input.classList.add(ok ? 'right' : 'wrong');
   if (ok) score++; else mistakes.push(d.code);
-  if (res === 'exact') feedback(true, tipUsed ? 'Richtig – mit Tipp!' : 'Richtig!', d.merk ? `Auf dem Blatt: ${d.name}` : d.meaning);
-  else if (res === 'typo') feedback(true, 'Richtig, nur ein kleiner Tippfehler.', `So schreibt man es: ${d.name}`);
-  else if (res === 'order') feedback(true, 'Richtig! Üblich ist die Reihenfolge K, M, R.', 'K – karzinogen, M – keimzellmutagen, R – reproduktionstoxisch');
-  else if (res === 'near') feedback(true, 'Richtig gemeint!', `Der Fachbegriff auf dem Blatt ist: ${d.name}`);
-  else feedback(false, raw ? 'Das stimmt leider nicht.' : 'Kein Problem, so lernst du es.', `Richtig ist: ${d.name}`);
+  feedback(...typedMsg(res, d, raw, tipUsed));
+}
+function typedMsg(res, d, raw, tip) {
+  if (res === 'exact') return [true, tip ? 'Richtig – mit Tipp!' : 'Richtig!', d.merk ? `Auf dem Blatt: ${d.name}` : d.meaning];
+  if (res === 'typo') return [true, 'Richtig, nur ein kleiner Tippfehler.', `So schreibt man es: ${d.name}`];
+  if (res === 'order') return [true, 'Richtig! Üblich ist die Reihenfolge K, M, R.', 'K – karzinogen, M – keimzellmutagen, R – reproduktionstoxisch'];
+  if (res === 'near') return [true, 'Richtig gemeint!', `Der Fachbegriff auf dem Blatt ist: ${d.name}`];
+  return [false, raw ? 'Das stimmt leider nicht.' : 'Kein Problem, so lernst du es.', `Richtig ist: ${d.name}`];
 }
 function renderResult() {
   const key = bestKey(level), prev = store.get(key, null), best = Math.max(prev ?? 0, score);
@@ -662,9 +703,199 @@ function renderResult() {
   if ($('r-next')) $('r-next').onclick = () => startLevel(level + 1);
 }
 
+// Lern-Wecker: Die Zeit läuft nur, solange du nicht auf dieser Seite bist
+const adlg = $('adlg');
+const AL = Object.assign({ minutes: 2, level: 'mix', sound: 'gong', vol: 0.7, repeat: true }, store.get('alarm', {}));
+const MINUTES = [1, 2, 3, 5, 10, 15];
+let alarmOn = false, awayMs = 0, lastTick = Date.now(), pendingQ = null, ringTimer = null, blinkTimer = null, rings = 0, actx = null, lastAlarmCode = null;
+const aStats = store.get('alarm-stats', { right: 0, total: 0 });
+const saveAL = () => store.set('alarm', AL);
+const isAway = () => document.hidden || !document.hasFocus();
+const fmt = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+
+// Töne werden im Browser erzeugt; der AudioContext entsteht beim Klick auf „Wecker starten“
+function audio() {
+  if (!actx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; actx = new C(); }
+  if (actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function tone(ctx, { f, type = 'sine', t0 = 0, dur = 1, vol = 1 }) {
+  const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + 0.03 + t0;
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * AL.vol), t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+const SOUNDS = {
+  gong: { label: 'Gong', play: c => { tone(c, { f: 392, dur: 2.2, vol: .55 }); tone(c, { f: 588, dur: 1.8, vol: .25 }); tone(c, { f: 784, dur: 1.2, vol: .12 }); } },
+  glocke: { label: 'Glocke', play: c => { [0, .55].forEach(t0 => { tone(c, { f: 1318, type: 'triangle', t0, dur: 1.4, vol: .5 }); tone(c, { f: 2637, t0, dur: .8, vol: .12 }); }); } },
+  piep: { label: 'Piepen', play: c => { [0, .25, .5, 1.1, 1.35, 1.6].forEach(t0 => tone(c, { f: 1046, type: 'square', t0, dur: .16, vol: .2 })); } },
+  wecker: { label: 'Wecker', play: c => { [0, 1.2].forEach(s => { for (let i = 0; i < 8; i++) tone(c, { f: i % 2 ? 1568 : 1319, type: 'square', t0: s + i * .12, dur: .1, vol: .18 }); }); } }
+};
+if (!SOUNDS[AL.sound]) AL.sound = 'gong';
+function ring() { const c = audio(); if (c) SOUNDS[AL.sound].play(c); }
+
+const baseTitle = document.title;
+function titleBlink(on) {
+  clearInterval(blinkTimer); document.title = baseTitle;
+  if (on) { let b = false; blinkTimer = setInterval(() => { b = !b; document.title = b ? '⏰ Frage wartet!' : baseTitle; }, 1000); }
+}
+function stopRinging() { clearInterval(ringTimer); titleBlink(false); }
+
+function makeAlarmQ() {
+  const lv = AL.level === 'mix' ? 1 + Math.floor(Math.random() * 3) : +AL.level;
+  const pool = DATA.filter(d => d.code !== lastAlarmCode);
+  const code = pool[Math.floor(Math.random() * pool.length)].code;
+  lastAlarmCode = code;
+  const opts = shuffle([code, ...shuffle(DATA.filter(x => x.code !== code).map(x => x.code)).slice(0, optCount - 1)]);
+  return { lv, code, opts, done: false };
+}
+function fire() {
+  pendingQ = makeAlarmQ();
+  if (dlg.open) dlg.close();
+  renderAlarmQ();
+  if (!adlg.open) adlg.showModal();
+  ring(); rings = 1;
+  titleBlink(true);
+  clearInterval(ringTimer);
+  if (AL.repeat) ringTimer = setInterval(() => {
+    if (!pendingQ || pendingQ.done || !isAway() || rings >= 3) { clearInterval(ringTimer); return; }
+    ring(); rings++;
+  }, 30000);
+  updateAlarmUI();
+}
+function renderAlarmQ() {
+  const q = pendingQ, d = byCode[q.code], L = LEVELS[q.lv];
+  let body;
+  if (q.lv === 1) body = `<div class="q-pic">${pic(d.code)}</div><div class="opts">${q.opts.map((c, i) => `<button class="opt" data-c="${c}"><span class="k">${i + 1}</span>${esc(byCode[c].name)}</button>`).join('')}</div>`;
+  else if (q.lv === 2) body = `<div class="q-word">${esc(d.name)}</div><div class="opts pics${q.opts.length > 4 ? ' many' : ''}">${q.opts.map((c, i) => `<button class="opt" data-c="${c}" aria-label="Antwort ${i + 1}">${pic(c, 'Antwort ' + (i + 1))}<span class="k">${i + 1}</span></button>`).join('')}</div>`;
+  else body = `<div class="q-pic">${pic(d.code)}</div>
+    <div class="typeform"><input id="a-answer" type="text" placeholder="Name des Symbols eintippen …" aria-label="Name des Symbols" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done"><button class="btn primary" id="a-check" type="button">Prüfen</button></div>
+    <div class="type-tools"><button class="btn ghost" id="a-skip" type="button">Weiß ich nicht</button></div>`;
+  adlg.innerHTML = `<div class="dlg">
+    <button class="x" id="a-x" aria-label="Später">×</button>
+    <div class="ring"><span aria-hidden="true">⏰</span>Wecker-Frage</div>
+    <span class="lv-badge lv${q.lv}">${L.badge}</span>
+    <div style="height:16px"></div>
+    ${body}
+    <div id="a-fb"></div>
+    <div class="next-row"><button class="btn primary" id="a-done" hidden>Weiter machen</button></div>
+  </div>`;
+  $('a-x').onclick = () => adlg.close();
+  if (q.lv < 3) {
+    adlg.querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => answerAlarmOpt(b.dataset.c)));
+  } else {
+    const inp = $('a-answer');
+    const go = () => { if (q.done) return; if (inp.value.trim()) answerAlarmTyped(inp.value); else inp.focus(); };
+    $('a-check').onclick = go;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); go(); } });
+    $('a-skip').onclick = () => { if (!q.done) answerAlarmTyped(''); };
+    setTimeout(() => inp.focus({ preventScroll: true }), 60);
+  }
+}
+function answerAlarmOpt(picked) {
+  const q = pendingQ;
+  if (!q || q.done) return;
+  q.done = true;
+  const ok = picked === q.code, d = byCode[q.code];
+  adlg.querySelectorAll('.opt').forEach(b => {
+    b.disabled = true;
+    if (b.dataset.c === q.code) b.classList.add('right');
+    else if (b.dataset.c === picked) b.classList.add('wrong');
+  });
+  alarmFeedback(ok, ok ? 'Richtig!' : 'Leider falsch.', ok ? d.meaning : `Richtig ist: ${d.name}`);
+}
+function answerAlarmTyped(raw) {
+  const q = pendingQ, d = byCode[q.code];
+  q.done = true;
+  const [ok, title, extra] = typedMsg(raw ? checkTyped(raw, d) : 'wrong', d, raw, false);
+  const inp = $('a-answer');
+  inp.disabled = true; $('a-check').disabled = $('a-skip').disabled = true;
+  inp.classList.add(ok ? 'right' : 'wrong');
+  alarmFeedback(ok, title, extra);
+}
+function alarmFeedback(ok, title, extra) {
+  aStats.total++; if (ok) aStats.right++;
+  store.set('alarm-stats', aStats);
+  $('a-fb').innerHTML = `<div class="feedback ${ok ? 'ok' : 'no'}" role="status">${esc(title)}${extra ? `<span>${esc(extra)}</span>` : ''}</div>`;
+  const b = $('a-done');
+  b.hidden = false; b.onclick = () => adlg.close(); b.focus({ preventScroll: true });
+  stopRinging();
+  renderAlarm();
+}
+// Schließen (auch mit Esc oder „Später“) startet die Zeit von vorn
+adlg.addEventListener('close', () => { pendingQ = null; awayMs = 0; stopRinging(); updateAlarmUI(); });
+adlg.addEventListener('keydown', e => {
+  const q = pendingQ;
+  if (!q || q.done || q.lv === 3) return;
+  const n = parseInt(e.key, 10), o = adlg.querySelectorAll('.opt');
+  if (n >= 1 && n <= o.length) o[n - 1].click();
+});
+
+function renderAlarm() {
+  const segs = (k, items, cur) => `<div class="seg" role="group" data-k="${k}">${items.map(([v, l]) => `<button data-v="${v}" aria-pressed="${String(v) === String(cur)}">${l}</button>`).join('')}</div>`;
+  $('alarm').innerHTML = `
+    <div class="alarm-status" id="a-status"><div class="clock" id="a-clock"></div><div class="st"><b id="a-state"></b><span id="a-sub"></span></div></div>
+    <div class="set"><div class="set-l">Wie oft?<small>Zeit, die du weg bist</small></div>${segs('minutes', MINUTES.map(m => [m, m + ' min']), AL.minutes)}</div>
+    <div class="set"><div class="set-l">Welche Stufe?</div>${segs('level', [['1', 'Stufe 1'], ['2', 'Stufe 2'], ['3', 'Stufe 3'], ['mix', 'Gemischt']], AL.level)}</div>
+    <div class="set"><div class="set-l">Ton</div><div class="row">${segs('sound', Object.entries(SOUNDS).map(([k, v]) => [k, v.label]), AL.sound)}<button class="btn ghost" id="a-test" type="button">▶ Anhören</button></div></div>
+    <div class="set"><div class="set-l">Lautstärke</div><input type="range" id="a-vol" min="0.1" max="1" step="0.05" value="${AL.vol}" aria-label="Lautstärke"></div>
+    <div class="set"><div class="set-l">Nochmal klingeln<small>falls du nicht kommst</small></div>${segs('repeat', [['true', 'Ja, alle 30 s (bis 3×)'], ['false', 'Nein']], AL.repeat)}</div>
+    <div class="alarm-actions">${alarmOn
+      ? `<button class="btn" id="a-toggle" type="button">Wecker ausschalten</button><button class="btn ghost" id="a-now" type="button">Jetzt eine Frage</button>`
+      : `<button class="btn primary" id="a-toggle" type="button">⏰ Wecker starten</button><button class="btn ghost" id="a-now" type="button">Probefrage</button>`}</div>
+    <p class="sub" style="text-align:center;margin-top:12px">Wecker-Fragen bisher: ${aStats.right} von ${aStats.total} richtig</p>
+    <div class="how"><b>So funktioniert es</b><ul>
+      <li>Die Zeit läuft nur, solange du <b>nicht</b> auf dieser Seite bist: in einem anderen Tab, einem anderen Programm oder auf dem anderen Bildschirm. Bist du hier, macht der Wecker Pause.</li>
+      <li>Ist die Zeit um, klingelt es und die Frage wartet hier auf dich. Nach der Antwort beginnt die Zeit von vorn.</li>
+      <li>Lass diesen Tab offen und nicht stummgeschaltet. Schließt du ihn, ist der Wecker aus.</li>
+      <li>Browser bremsen Tabs im Hintergrund. Es kann deshalb bis zu etwa einer Minute später klingeln.</li>
+      <li>Auf dem Handy pausiert der Browser die Seite meistens, wenn du die App wechselst. Dort klingelt es dann nicht.</li>
+    </ul></div>`;
+  $('alarm').querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const k = g.dataset.k, v = b.dataset.v;
+    AL[k] = k === 'minutes' ? +v : k === 'repeat' ? v === 'true' : v;
+    saveAL();
+    if (k === 'sound') ring();
+    renderAlarm();
+  })));
+  $('a-vol').oninput = e => { AL.vol = +e.target.value; saveAL(); };
+  $('a-vol').onchange = ring;
+  $('a-test').onclick = ring;
+  $('a-toggle').onclick = () => { alarmOn = !alarmOn; awayMs = 0; if (alarmOn) audio(); renderAlarm(); };
+  $('a-now').onclick = () => { audio(); fire(); };
+  updateAlarmUI();
+}
+function updateAlarmUI() {
+  const left = AL.minutes * 60000 - awayMs, away = isAway();
+  const pill = $('alarm-pill');
+  pill.hidden = !alarmOn;
+  if (alarmOn) { $('pill-time').textContent = pendingQ ? 'Frage!' : fmt(left); pill.classList.toggle('paused', !away && !pendingQ); }
+  if (!$('a-clock')) return;
+  $('a-status').classList.toggle('on', alarmOn);
+  $('a-clock').textContent = fmt(alarmOn ? left : AL.minutes * 60000);
+  $('a-state').innerHTML = `<span class="dot"></span>${alarmOn ? 'Wecker läuft' : 'Wecker ist aus'}`;
+  $('a-sub').textContent = !alarmOn ? `Klingelt, wenn du ${AL.minutes} ${AL.minutes > 1 ? 'Minuten' : 'Minute'} weg warst.`
+    : pendingQ ? 'Eine Frage wartet auf dich.'
+    : away ? 'Du bist weg, die Zeit läuft.'
+    : 'Pause, solange du auf dieser Seite bist.';
+}
+$('alarm-pill').onclick = () => show('wecker');
+setInterval(() => {
+  const now = Date.now(), dt = now - lastTick;
+  lastTick = now;
+  if (alarmOn && !pendingQ && isAway()) {
+    awayMs += dt;
+    if (awayMs >= AL.minutes * 60000) fire();
+  }
+  updateAlarmUI();
+}, 1000);
+
 // Tastatur
 document.addEventListener('keydown', e => {
-  if (e.altKey || e.ctrlKey || e.metaKey || dlg.open) return;
+  if (e.altKey || e.ctrlKey || e.metaKey || dlg.open || adlg.open) return;
   const t = e.target.tagName;
   if (!$('v-karten').hidden && deck.length && t !== 'INPUT') {
     if (e.key === ' ' && t !== 'BUTTON') { e.preventDefault(); flip(); }
@@ -679,6 +910,7 @@ document.addEventListener('keydown', e => {
 
 setDir(dir);
 renderLevels();
+renderAlarm();
 show(location.hash.slice(1) || store.get('view', 'start'));
 </script>
 </body>
