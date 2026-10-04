@@ -31,6 +31,7 @@
   color-scheme:dark}
 
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 var(--body);-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit}
@@ -158,6 +159,10 @@ kbd{font:600 .78rem ui-monospace,Menlo,monospace;border:1px solid var(--line);bo
 .q-word{font:800 clamp(1.5rem,4.4vw,2rem)/1.15 var(--display);letter-spacing:-.02em;text-align:center;margin:4px 0 22px;text-wrap:balance}
 .opts{display:grid;gap:10px}
 .opts.pics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.opts.pics.many{grid-template-columns:repeat(3,minmax(0,1fr));max-width:460px;margin-inline:auto}
+.optbar{display:flex;align-items:center;justify-content:center;gap:4px 12px;flex-wrap:wrap;margin-bottom:18px;color:var(--muted);font-weight:600;font-size:.92rem;text-align:center}
+.optbar .seg{margin:0}
+.optbar .seg button{min-width:44px}
 .opt{border:1.5px solid var(--line);background:var(--surface);border-radius:14px;padding:13px 16px;cursor:pointer;display:flex;gap:12px;align-items:center;text-align:left;font-weight:600;transition:border-color .15s,background .15s,transform .12s}
 .opt:hover:not(:disabled){border-color:var(--muted)}
 .opt:active:not(:disabled){transform:scale(.98)}
@@ -216,6 +221,8 @@ section+section{margin-top:56px}
   .notes{grid-template-columns:minmax(0,1fr)}
   .panel-box{padding:18px;border-radius:22px}
   .opts.pics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .opts.pics.many{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .opts.pics.many .opt{padding:8px 4px 6px}
   .q-pic{width:150px}
   .dlg-top .pic{width:88px}
   .card{height:330px}
@@ -299,59 +306,68 @@ const IMG = {"GHS01": "data:image/svg+xml;base64,PHN2ZyB4bWxuczpzdmc9Imh0dHA6Ly9
 // Reihenfolge und Wortlaut wie auf dem Arbeitsblatt
 const DATA = [
   { code: 'GHS01', name: 'Explosiv', short: 'Explosiv',
-    accept: ['explosiv', 'explosion', 'explodierend', 'explosionsgefaehrlich', 'explosionsgefahr'],
+    accept: ['explosiv', 'explosionsgefährlich', 'explodierend', 'explosionsfähig'],
+    near: ['explosion', 'explosionsgefahr', 'explodiert', 'sprengstoff', 'sprengfähig'],
     meaning: 'Der Stoff kann durch Schlag, Reibung, Wärme oder Funken explodieren.',
     examples: ['Feuerwerkskörper', 'Nitroglycerin', 'trockene Pikrinsäure'],
     tips: ['Nicht stoßen, reiben oder erhitzen', 'Von Zündquellen fernhalten'] },
   { code: 'GHS02', name: 'Entzündbar', short: 'Entzündbar',
-    accept: ['entzuendbar', 'entzuendlich', 'leicht entzuendlich', 'hoch entzuendlich', 'leicht entzuendbar', 'brennbar', 'entflammbar'],
+    accept: ['entzündbar', 'entzündlich', 'leicht entzündlich', 'hoch entzündlich', 'leicht entzündbar', 'extrem entzündbar'],
+    near: ['brennbar', 'leicht brennbar', 'entflammbar', 'feuergefährlich', 'brandgefährlich'],
     meaning: 'Der Stoff brennt selbst leicht: entzündbare Gase, Flüssigkeiten, Feststoffe und Sprays.',
     examples: ['Ethanol (Spiritus)', 'Aceton', 'Benzin', 'Feuerzeuggas'],
     tips: ['Fern von Flammen, Funken und Hitze', 'Nicht rauchen', 'Gut lüften'] },
   { code: 'GHS03', name: 'Entzündend (brandfördernd)', short: 'Entzündend',
-    accept: ['entzuendend', 'brandfoerdernd', 'entzuendend brandfoerdernd', 'oxidierend', 'brand foerdernd'],
+    accept: ['entzündend', 'brandfördernd', 'entzündend brandfördernd', 'oxidierend'],
+    near: ['oxidationsmittel', 'feuerfördernd', 'brandverstärkend', 'sauerstoffabgebend'],
     meaning: 'Der Stoff gibt meist Sauerstoff ab und lässt andere Stoffe stärker brennen.',
     examples: ['Wasserstoffperoxid (konzentriert)', 'Kaliumpermanganat', 'Sauerstoff'],
     tips: ['Getrennt von brennbaren Stoffen lagern', 'Kein Kontakt mit Öl oder Fett'] },
   { code: 'GHS06', name: 'Giftig', short: 'Giftig',
-    accept: ['giftig', 'sehr giftig', 'toxisch', 'akut toxisch', 'gift', 'lebensgefaehrlich'],
+    accept: ['giftig', 'sehr giftig', 'toxisch', 'akut toxisch'],
+    near: ['gift', 'giftstoff', 'tödlich', 'tödlich giftig', 'lebensgefährlich'],
     meaning: 'Schon kleine Mengen können beim Verschlucken, Einatmen oder über die Haut lebensgefährlich sein.',
     examples: ['Methanol', 'Kaliumcyanid', 'Quecksilberverbindungen'],
     tips: ['Kontakt unbedingt vermeiden', 'Nur mit Schutzausrüstung und im Abzug arbeiten'] },
   { code: 'GHS07', name: 'Reizung (Augen, Haut), evtl. mindergiftig', short: 'Reizung',
     merk: ['Reizung (Augen, Haut)', 'evtl. mindergiftig'],
-    accept: ['reizung', 'reizend', 'reizt', 'mindergiftig', 'minder giftig', 'gesundheitsschaedlich', 'reizung augen haut', 'reizung mindergiftig'],
+    accept: ['reizung', 'reizend', 'mindergiftig', 'gesundheitsschädlich', 'reizung augen haut', 'reizung mindergiftig'],
+    near: ['reizt', 'reizstoff', 'hautreizend', 'augenreizend', 'reizt haut und augen', 'schädlich', 'minder giftig'],
     meaning: 'Reizt Haut, Augen oder Atemwege, kann Allergien auslösen oder ist gesundheitsschädlich.',
     examples: ['Isopropanol', 'Waschmittel', 'Ethylacetat'],
     tips: ['Dämpfe nicht einatmen', 'Handschuhe und Schutzbrille tragen'] },
   { code: 'GHS08', name: 'K, M, R – sehr gefährliche Stoffe', short: 'K, M, R',
     merk: ['K – karzinogen', 'M – keimzellmutagen', 'R – reproduktionstoxisch'],
-    accept: ['kmr', 'k m r', 'karzinogen', 'kanzerogen', 'keimzellmutagen', 'mutagen', 'reproduktionstoxisch', 'krebserzeugend', 'krebserregend', 'sehr gefaehrliche stoffe', 'sehr gefaehrlich', 'gesundheitsgefahr', 'gesundheitsgefaehrdend'],
+    accept: ['kmr', 'karzinogen', 'kanzerogen', 'keimzellmutagen', 'reproduktionstoxisch', 'krebserzeugend', 'sehr gefährliche stoffe', 'gesundheitsgefahr', 'gesundheitsgefährdend'],
+    near: ['krebserregend', 'krebs', 'mutagen', 'erbgutverändernd', 'fortpflanzungsgefährdend', 'fruchtschädigend', 'cmr', 'sehr gefährlich'],
     meaning: 'Kann Krebs erzeugen, das Erbgut verändern, die Fortpflanzung schädigen oder Organe schwer schädigen. Die Wirkung zeigt sich oft erst nach langer Zeit.',
     examples: ['Benzol', 'Formaldehyd', 'Asbest', 'Bleiverbindungen'],
     tips: ['Kontakt so weit wie möglich vermeiden', 'Für Schwangere und Jugendliche gelten besondere Verbote'] },
   { code: 'GHS05', name: 'Hautätzend, schwere Augenschädigung', short: 'Hautätzend',
     merk: ['hautätzend', 'schwere Augenschädigung'],
-    accept: ['hautaetzend', 'aetzend', 'haut aetzend', 'schwere augenschaedigung', 'augenschaedigung', 'korrosiv', 'hautaetzend schwere augenschaedigung'],
+    accept: ['hautätzend', 'ätzend', 'schwere augenschädigung', 'augenschädigung', 'korrosiv', 'hautätzend schwere augenschädigung'],
+    near: ['augenschädlich', 'augenschädigend', 'augenschaden', 'verätzend', 'ätzt', 'ätzwirkung', 'augen schädigend', 'haut ätzend'],
     meaning: 'Zerstört Haut und Augen und greift Metalle an.',
     examples: ['Salzsäure', 'Natronlauge', 'Rohrreiniger'],
     tips: ['Schutzbrille und Handschuhe tragen', 'Bei Augenkontakt sofort mehrere Minuten spülen und zum Arzt'] },
   { code: 'GHS04', name: 'Unter Druck stehende Gase', short: 'Gase unter Druck',
-    accept: ['unter druck stehende gase', 'unter druck stehendes gas', 'gase unter druck', 'gas unter druck', 'unter druck', 'druckgas', 'druckgase', 'gasflasche', 'komprimierte gase', 'komprimiertes gas'],
+    accept: ['unter druck stehende gase', 'unter druck stehendes gas', 'gase unter druck', 'gas unter druck', 'unter druck'],
+    near: ['druckgas', 'druckgase', 'gasflasche', 'druckgasflasche', 'komprimierte gase', 'komprimiertes gas', 'druckbehälter'],
     meaning: 'Gas in einer Flasche unter hohem Druck. Bei Hitze kann sie platzen. Tiefkalte Gase verursachen Kälteverbrennungen.',
     examples: ['Gasflaschen mit CO₂ oder Argon', 'flüssiger Stickstoff'],
     tips: ['Flaschen gegen Umfallen sichern', 'Vor Sonne und Hitze schützen'] },
   { code: 'GHS09', name: 'Gewässergefährdend', short: 'Gewässergefährdend',
-    accept: ['gewaessergefaehrdend', 'gewaesser gefaehrdend', 'umweltgefaehrlich', 'umweltgefaehrdend', 'umweltschaedlich', 'wassergefaehrdend'],
+    accept: ['gewässergefährdend', 'umweltgefährlich', 'umweltgefährdend'],
+    near: ['umweltschädlich', 'wassergefährdend', 'gewässerschädlich', 'fischgiftig', 'giftig für fische', 'giftig für wasserorganismen'],
     meaning: 'Schädlich für Fische und andere Lebewesen im Wasser, oft lange anhaltend.',
     examples: ['Pflanzenschutzmittel', 'Kupfersalze', 'Schwermetallverbindungen'],
     tips: ['Nie in den Ausguss gießen', 'Als Sondermüll entsorgen'] }
 ];
 const LEVELS = [
   null,
-  { n: 1, badge: 'Stufe 1 · Leicht', title: 'Symbol → Name', text: 'Du siehst ein Symbol und wählst den passenden Namen aus vier Antworten.' },
+  { n: 1, badge: 'Stufe 1 · Leicht', title: 'Symbol → Name', text: 'Du siehst ein Symbol und wählst den passenden Namen aus.' },
   { n: 2, badge: 'Stufe 2 · Mittel', title: 'Name → Symbol', text: 'Du liest den Namen und tippst auf das richtige Symbol.' },
-  { n: 3, badge: 'Stufe 3 · Profi', title: 'Namen schreiben', text: 'Du siehst ein Symbol und schreibst den Namen selbst. Kleine Tippfehler sind okay.' }
+  { n: 3, badge: 'Stufe 3 · Profi', title: 'Namen schreiben', text: 'Du siehst ein Symbol und schreibst den Namen selbst. Ein kleiner Tippfehler oder ein sinngemäß richtiger Begriff zählt auch.' }
 ];
 
 const byCode = Object.fromEntries(DATA.map(d => [d.code, d]));
@@ -457,8 +473,12 @@ function answerCard(ok) {
   flipped = false; renderFlash();
 }
 
-// Antwort-Prüfung für Stufe 3
-const norm = s => s.toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z]+/g, ' ').trim();
+// Antwort-Prüfung für Stufe 3: Groß/klein, Umlaute (ä/ae/a) und Leerzeichen sind egal
+const norm = s => s.toLowerCase()
+  .replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss')
+  .replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u')
+  .replace(/[^a-z]+/g, '');
+DATA.forEach(d => { d.accN = d.accept.map(norm); d.nearN = d.near.map(norm); });
 function lev(a, b) {
   const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i]);
   for (let j = 1; j <= n; j++) d[0][j] = j;
@@ -466,19 +486,34 @@ function lev(a, b) {
     d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
   return d[m][n];
 }
-const tolerance = len => len >= 9 ? 2 : len >= 5 ? 1 : 0;
-function checkTyped(raw, d) {
-  const parts = [raw, ...raw.split(/,|;|\/|\+|&|\bund\b|\boder\b|\(|\)/i)].map(norm).filter(Boolean);
+// erlaubte Tippfehler: kurze Wörter 1, lange Wörter (ab 9 Buchstaben) 2
+const tolerance = len => len >= 9 ? 2 : len >= 4 ? 1 : 0;
+function matchList(parts, list) {
   let typo = false;
-  for (const p of parts) for (const a of d.accept) {
-    if (p === a || p.replace(/ /g, '') === a.replace(/ /g, '')) return 'exact';
+  for (const p of parts) for (const a of list) {
+    if (p === a) return 'exact';
     if (lev(p, a) <= tolerance(a.length)) typo = true;
   }
-  return typo ? 'typo' : 'wrong';
+  return typo ? 'typo' : null;
+}
+// Ergebnis: exact | typo | order (K, M, R vertauscht) | near (sinngemäß richtig) | wrong
+function checkTyped(raw, d) {
+  const parts = [raw, ...raw.split(/,|;|\/|\+|&|\bund\b|\boder\b|\(|\)|-|–/i)].map(norm).filter(Boolean);
+  if (d.code === 'GHS08' && parts.some(p => p.length === 3 && p.split('').sort().join('') === 'kmr'))
+    return parts.includes('kmr') ? 'exact' : 'order';
+  const a = matchList(parts, d.accN);
+  if (a === 'exact') return 'exact';
+  const n = matchList(parts, d.nearN);
+  if (n === 'exact') return 'near';
+  if (a === 'typo') return 'typo';
+  return n ? 'near' : 'wrong';
 }
 
 // Quiz
 let level = 0, qs = [], qi = 0, score = 0, mistakes = [], locked = false, tipUsed = false;
+const COUNTS = [2, 3, 4, 6, 9];
+let optCount = COUNTS.includes(store.get('opts', 4)) ? store.get('opts', 4) : 4;
+const bestKey = n => n === 3 ? 'best-3' : `best-${n}-${optCount}`;
 function renderLevels() {
   level = 0;
   const demo = n => n === 1
@@ -488,16 +523,20 @@ function renderLevels() {
     : `${pic('GHS09')}<span class="arrow">→</span><span class="word typed">Gewässer…</span>`;
   $('quiz').innerHTML = `
     <div class="sec-h" style="justify-content:center;text-align:center"><div><h2>Quiz in drei Stufen</h2><p class="sub">Fang leicht an und arbeite dich hoch. Jede Runde fragt alle 9 Symbole ab.</p></div></div>
+    <div class="optbar"><span>Antwortmöglichkeiten bei Stufe 1 und 2:</span>
+      <div class="seg" role="group" aria-label="Anzahl der Antwortmöglichkeiten">${COUNTS.map(c => `<button data-n="${c}" aria-pressed="${c === optCount}">${c === 9 ? 'Alle 9' : c}</button>`).join('')}</div>
+    </div>
     <div class="levels">${[1, 2, 3].map(n => {
-      const L = LEVELS[n], best = store.get('best-' + n, null);
+      const L = LEVELS[n], best = store.get(bestKey(n), null);
       return `<button class="level lv${n}" data-l="${n}">
         <div class="lv-top"><span class="lv-badge">${L.badge}</span>${stars(best === null ? 0 : starsFor(best))}</div>
         <h3>${L.title}</h3><p>${L.text}</p>
         <div class="lv-demo" aria-hidden="true">${demo(n)}</div>
-        <small style="color:var(--muted)">${best === null ? 'Noch nicht gespielt' : `Bestes Ergebnis: ${best} / 9`}</small>
+        <small style="color:var(--muted)">${n < 3 ? `${optCount === 9 ? 'Alle 9' : optCount} Antworten zur Auswahl · ` : ''}${best === null ? 'Noch nicht gespielt' : `Bestes Ergebnis: ${best} / 9`}</small>
       </button>`;
     }).join('')}</div>`;
   $('quiz').querySelectorAll('.level').forEach(b => b.addEventListener('click', () => startLevel(+b.dataset.l)));
+  $('quiz').querySelectorAll('.optbar button').forEach(b => b.addEventListener('click', () => { optCount = +b.dataset.n; store.set('opts', optCount); renderLevels(); }));
 }
 function startLevel(n) { level = n; qs = shuffle(DATA.map(d => d.code)); qi = 0; score = 0; mistakes = []; renderQ(); }
 function renderQ() {
@@ -506,16 +545,16 @@ function renderQ() {
   const L = LEVELS[level], d = byCode[qs[qi]];
   let body = '';
   if (level === 1 || level === 2) {
-    const opts = shuffle([d.code, ...shuffle(DATA.filter(x => x !== d).map(x => x.code)).slice(0, 3)]);
+    const opts = shuffle([d.code, ...shuffle(DATA.filter(x => x !== d).map(x => x.code)).slice(0, optCount - 1)]);
     body = level === 1
       ? `<div class="q-pic">${pic(d.code)}</div><div class="opts">${opts.map((c, i) => `<button class="opt" data-c="${c}"><span class="k">${i + 1}</span>${esc(byCode[c].name)}</button>`).join('')}</div>`
-      : `<div class="q-word">${esc(d.name)}</div><div class="opts pics">${opts.map((c, i) => `<button class="opt" data-c="${c}" aria-label="Antwort ${i + 1}">${pic(c, 'Antwort ' + (i + 1))}<span class="k">${i + 1}</span></button>`).join('')}</div>`;
+      : `<div class="q-word">${esc(d.name)}</div><div class="opts pics${opts.length > 4 ? ' many' : ''}">${opts.map((c, i) => `<button class="opt" data-c="${c}" aria-label="Antwort ${i + 1}">${pic(c, 'Antwort ' + (i + 1))}<span class="k">${i + 1}</span></button>`).join('')}</div>`;
   } else {
     body = `<div class="q-pic">${pic(d.code)}</div>
-      <form class="typeform" id="tf" autocomplete="off">
-        <input id="answer" type="text" placeholder="Name des Symbols eintippen …" aria-label="Name des Symbols" autocapitalize="off" spellcheck="false" enterkeyhint="done">
-        <button class="btn primary" type="submit">Prüfen</button>
-      </form>
+      <div class="typeform">
+        <input id="answer" type="text" placeholder="Name des Symbols eintippen …" aria-label="Name des Symbols" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+        <button class="btn primary" id="check" type="button">Prüfen</button>
+      </div>
       <div class="type-tools"><button class="btn ghost" id="tip" type="button">💡 Tipp</button><button class="btn ghost" id="skip" type="button">Weiß ich nicht</button></div>
       <div class="tipbox" id="tipbox" hidden></div>`;
   }
@@ -534,7 +573,9 @@ function renderQ() {
     $('quiz').querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => pickOption(b.dataset.c)));
   } else {
     const input = $('answer');
-    $('tf').addEventListener('submit', e => { e.preventDefault(); if (!locked && input.value.trim()) submitTyped(input.value); else input.focus(); });
+    const go = () => { if (locked) return; if (input.value.trim()) submitTyped(input.value); else input.focus(); };
+    $('check').onclick = go;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); go(); } });
     $('tip').onclick = () => {
       tipUsed = true;
       const w = d.short.replace(/,.*$/, '');
@@ -572,17 +613,19 @@ function finishTyped(res, raw) {
   locked = true;
   const d = byCode[qs[qi]], input = $('answer');
   input.disabled = true;
-  $('tf').querySelector('button').disabled = true;
+  $('check').disabled = true;
   $('tip').disabled = $('skip').disabled = true;
   const ok = res !== 'wrong';
   input.classList.add(ok ? 'right' : 'wrong');
   if (ok) score++; else mistakes.push(d.code);
   if (res === 'exact') feedback(true, tipUsed ? 'Richtig – mit Tipp!' : 'Richtig!', d.merk ? `Auf dem Blatt: ${d.name}` : d.meaning);
   else if (res === 'typo') feedback(true, 'Richtig, nur ein kleiner Tippfehler.', `So schreibt man es: ${d.name}`);
+  else if (res === 'order') feedback(true, 'Richtig! Üblich ist die Reihenfolge K, M, R.', 'K – karzinogen, M – keimzellmutagen, R – reproduktionstoxisch');
+  else if (res === 'near') feedback(true, 'Richtig gemeint!', `Der Fachbegriff auf dem Blatt ist: ${d.name}`);
   else feedback(false, raw ? 'Das stimmt leider nicht.' : 'Kein Problem, so lernst du es.', `Richtig ist: ${d.name}`);
 }
 function renderResult() {
-  const key = 'best-' + level, prev = store.get(key, null), best = Math.max(prev ?? 0, score);
+  const key = bestKey(level), prev = store.get(key, null), best = Math.max(prev ?? 0, score);
   store.set(key, best);
   const msg = score === 9 ? 'Perfekt! Du kennst alle Symbole.'
     : score >= 7 ? 'Sehr gut, fast alles richtig.'
@@ -594,7 +637,7 @@ function renderResult() {
     <div class="big">${score} / 9</div>
     ${stars(starsFor(score))}
     <p>${msg}</p>
-    <p class="sub" style="font-size:.9rem">Bestes Ergebnis: ${best} / 9${newBest}</p>
+    <p class="sub" style="font-size:.9rem">${level < 3 ? `Mit ${optCount === 9 ? 'allen 9' : optCount} Antwortmöglichkeiten · ` : ''}Bestes Ergebnis: ${best} / 9${newBest}</p>
     ${mistakes.length ? `<div class="mistakes"><strong>Das solltest du noch üben:</strong>${mistakes.map(c => `<div>${pic(c, byCode[c].name)}<b>${esc(byCode[c].name)}</b></div>`).join('')}</div>` : ''}
     <div class="row center">
       ${level < 3 && score >= 7 ? `<button class="btn primary" id="r-next">Weiter zu Stufe ${level + 1}</button>` : ''}
