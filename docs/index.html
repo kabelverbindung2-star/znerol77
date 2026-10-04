@@ -2,61 +2,408 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gefahrensymbole lernen (GHS)</title>
-<meta name="description" content="Lerne die 9 GHS-Gefahrenpiktogramme: Bedeutung, Beispiele, Sicherheitstipps und Quiz.">
-<link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gefahrensymbole lernen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,600..900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: Etikett-Ästhetik – Kopf mit Piktogramm-Leiste, darunter Lernbereiche als Reiter; Übersicht als 3×3-Raster wie das Arbeitsblatt */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --ink:#16181d; --muted:#5d6370; --line:#dcdfe6;
+  --ghs:#d0021b; --ghs-text:#b10018; --ok:#17803d; --ok-bg:#e6f4ea; --bad:#c4241c; --bad-bg:#fbe9e7;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121418; --surface:#1b1e24; --ink:#eceef2; --muted:#9ca3af; --line:#2d323b;
+  --ghs-text:#ff6b7a; --ok:#4cc477; --ok-bg:#16301f; --bad:#ff7a6e; --bad-bg:#3a1c1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121418; --surface:#1b1e24; --ink:#eceef2; --muted:#9ca3af; --line:#2d323b;
+  --ghs-text:#ff6b7a; --ok:#4cc477; --ok-bg:#16301f; --bad:#ff7a6e; --bad-bg:#3a1c1a; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 var(--body)}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+
+.top{padding-block:28px 8px}
+.strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.strip svg{width:34px;height:34px}
+h1{font:900 clamp(2rem,6vw,3.4rem)/1 var(--display);font-stretch:78%;letter-spacing:-.01em;margin:0;text-transform:uppercase;text-wrap:balance}
+h1 span{color:var(--ghs-text)}
+.lead{color:var(--muted);margin:10px 0 0;max-width:60ch}
+
+.tabs{display:flex;gap:4px;margin-top:22px;border-bottom:2px solid var(--line);overflow-x:auto}
+.tab{font:700 1rem var(--body);padding:10px 16px;border:0;background:none;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ghs)}
+.tab:focus-visible,button:focus-visible,.card:focus-visible{outline:3px solid var(--ghs);outline-offset:2px}
+.panel{padding-top:24px}
+
+.overview{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start}
+.sheet{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tile{background:var(--surface);border:2px solid var(--line);border-radius:10px;padding:14px 8px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;color:var(--ink);font:inherit;text-align:center;transition:border-color .15s}
+.tile:hover{border-color:var(--muted)}
+.tile[aria-pressed="true"]{border-color:var(--ghs)}
+.tile svg{width:min(92px,100%);height:auto;aspect-ratio:1}
+.tile .lbl{font:italic 400 .92rem/1.3 var(--body)}
+.detail{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+.detail .dh{display:flex;gap:16px;align-items:center}
+.detail .dh>div{min-width:0}
+.detail svg{width:110px;height:110px;flex:none}
+.detail h2{font:800 1.5rem/1.15 var(--display);font-stretch:85%;margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.code{font:500 .8rem var(--mono);color:var(--muted);letter-spacing:.04em}
+.merk{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 4px;justify-content:inherit}
+.merk span{font-size:.85rem;font-weight:700;padding:3px 9px;border-radius:999px;border:1.5px solid var(--ghs);color:var(--ghs-text)}
+.detail h3{font:700 .75rem var(--body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 4px}
+.detail p{margin:0}
+.detail ul{margin:0;padding-left:20px}
+
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px;max-width:620px}
+.btn{font:700 1rem var(--body);padding:10px 18px;border-radius:8px;border:2px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn.primary{background:var(--ghs);border-color:var(--ghs);color:#fff}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:.9rem;margin-bottom:12px;font-variant-numeric:tabular-nums}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:18px}
+.bar i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.hint{color:var(--muted);font-size:.85rem;margin:12px 0 0}
+kbd{font:500 .78rem var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px}
+
+.card{perspective:1000px;height:320px;cursor:pointer;margin-bottom:16px}
+.card-in{position:relative;width:100%;height:100%;transition:transform .45s;transform-style:preserve-3d}
+.card.flipped .card-in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;border:2px solid var(--line);border-radius:12px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:18px;text-align:center;gap:10px;overflow:auto}
+.face svg{width:150px;height:150px;flex:none}
+.back{transform:rotateY(180deg);justify-content:center}
+.back h2{font:800 1.6rem/1.15 var(--display);font-stretch:85%;margin:0;text-wrap:balance}
+.back .merk{justify-content:center;margin:0}
+.back p{margin:0;font-size:.95rem;color:var(--muted);max-width:44ch}
+.done{text-align:center;padding:30px 10px}
+.done strong{font:900 2rem var(--display);font-stretch:80%;display:block}
+
+.modes{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.modes .btn[aria-pressed="true"]{border-color:var(--ghs);color:var(--ghs-text)}
+.q-symbol svg{width:150px;height:150px;display:block;margin:0 auto 16px}
+.q-name{font:800 1.5rem/1.2 var(--display);font-stretch:85%;text-align:center;margin:6px 0 18px;text-wrap:balance}
+.opts{display:grid;gap:8px}
+.opts.pics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.opt{font:inherit;text-align:left;padding:11px 14px;border-radius:8px;border:2px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:flex;gap:10px;align-items:center}
+.opt:hover:not(:disabled){border-color:var(--muted)}
+.opt .k{font:500 .78rem var(--mono);color:var(--muted)}
+.opts.pics .opt{flex-direction:column;justify-content:center;padding:10px 4px}
+.opts.pics svg{width:100%;max-width:90px;height:auto;aspect-ratio:1}
+.opt.right{border-color:var(--ok);background:var(--ok-bg)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+.opt:disabled{cursor:default}
+.feedback{min-height:1.6em;margin:12px 0 8px;font-weight:700}
+.feedback.ok{color:var(--ok)} .feedback.no{color:var(--bad)}
+.result{text-align:center}
+.result .big{font:900 3.2rem/1 var(--display);font-stretch:80%;font-variant-numeric:tabular-nums}
+.mistakes{text-align:left;margin:18px 0;display:grid;gap:8px}
+.mistakes div{display:flex;gap:12px;align-items:center;background:var(--bg);border-radius:8px;padding:8px}
+.mistakes svg{width:48px;height:48px;flex:none}
+
+.notes{max-width:68ch;padding-left:20px}
+.notes li{margin-bottom:10px}
+.small{color:var(--muted);font-size:.88rem}
+footer{color:var(--muted);font-size:.85rem;margin-top:40px;border-top:1px solid var(--line);padding-top:14px}
+
+@media (max-width:760px){
+  .overview{grid-template-columns:minmax(0,1fr)}
+  .detail{position:static}
+  .opts.pics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:420px){
+  .tile .lbl{font-size:.8rem}
+  .detail svg{width:80px;height:80px}
+  .box{padding:16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
 </head>
 <body>
-<header>
-  <h1>⚠️ Gefahrensymbole lernen</h1>
-  <p>Die 9 GHS-Piktogramme auf Chemikalien-Etiketten – Bedeutung, Beispiele, Quiz.</p>
-  <nav>
-    <a href="#symbole">Symbole</a>
-    <a href="#karten">Lernkarten</a>
-    <a href="#quiz">Quiz</a>
-    <a href="#hinweise">Hinweise</a>
-  </nav>
-</header>
 
-<main>
-  <section id="symbole">
-    <h2>Die 9 Piktogramme</h2>
-    <input id="search" type="search" placeholder="Suchen, z. B. „ätzend“, „KMR“, „Druck“ …" aria-label="Suchen">
-    <div id="grid" class="grid"></div>
-  </section>
+<div class="wrap">
+  <header class="top">
+    <div class="strip" id="strip" aria-hidden="true"></div>
+    <h1>Gefahren<span>symbole</span> lernen</h1>
+    <p class="lead">Die 9 Piktogramme von Chemikalien-Etiketten: anschauen, mit Lernkarten üben, im Quiz testen.</p>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="t-uebersicht" data-p="uebersicht" aria-selected="true">Übersicht</button>
+      <button class="tab" role="tab" id="t-lernen" data-p="lernen" aria-selected="false">Lernkarten</button>
+      <button class="tab" role="tab" id="t-quiz" data-p="quiz" aria-selected="false">Quiz</button>
+      <button class="tab" role="tab" id="t-wissen" data-p="wissen" aria-selected="false">Gut zu wissen</button>
+    </nav>
+  </header>
 
-  <section id="karten">
-    <h2>Lernkarten</h2>
-    <p>Klick auf die Karte, um sie umzudrehen. Was bedeutet das Symbol?</p>
-    <div id="flash" class="flash" tabindex="0" role="button" aria-label="Karte umdrehen"></div>
-    <div class="row">
-      <button id="prev">← Zurück</button>
-      <button id="shuffle">Mischen</button>
-      <button id="next">Weiter →</button>
+  <section class="panel" id="uebersicht" role="tabpanel">
+    <div class="overview">
+      <div class="sheet" id="sheet"></div>
+      <article class="detail" id="detail" aria-live="polite"></article>
     </div>
   </section>
 
-  <section id="quiz">
-    <h2>Quiz</h2>
-    <div id="quizbox" class="quizbox"></div>
+  <section class="panel" id="lernen" role="tabpanel" hidden>
+    <div class="box" id="flashbox"></div>
   </section>
 
-  <section id="hinweise">
-    <h2>Gut zu wissen</h2>
+  <section class="panel" id="quiz" role="tabpanel" hidden>
+    <div class="box">
+      <div class="modes" role="group" aria-label="Quiz-Art">
+        <button class="btn" id="m-sym" data-mode="sym" aria-pressed="true">Symbol → Name</button>
+        <button class="btn" id="m-name" data-mode="name" aria-pressed="false">Name → Symbol</button>
+      </div>
+      <div id="quizbox"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="wissen" role="tabpanel" hidden>
     <ul class="notes">
-      <li><strong>Brandfördernd ≠ entzündbar:</strong> „Entzündbar“ (GHS02) brennt selbst. „Brandfördernd“ (GHS03, Flamme über Kreis) fördert Brände anderer Stoffe, meist durch Sauerstoff-Abgabe.</li>
-      <li><strong>„Mindergiftig“</strong> ist der alte Ausdruck. Heute heißt GHS07 (Ausrufezeichen): <em>reizend / gesundheitsschädlich</em>.</li>
-      <li><strong>KMR</strong> = krebserzeugend, keimzellmutagen, reproduktionstoxisch. Das gehört zu GHS08 („Gesundheitsgefahr“), zusammen mit Atemwegssensibilisierung und Organschäden.</li>
-      <li><strong>Hautätzend und schwere Augenschädigung</strong> gehören beide zu GHS05 (Ätzwirkung). GHS05 steht auch für metallkorrosive Stoffe.</li>
-      <li><strong>Gewässergefährdend</strong> = GHS09 („Umwelt“). Eine Gewässerfärbung ist kein eigenes Gefahrensymbol.</li>
-      <li>Auf dem Etikett stehen zusätzlich <strong>Signalwort</strong> („Gefahr“ / „Achtung“), <strong>H-Sätze</strong> (Gefahrenhinweise) und <strong>P-Sätze</strong> (Sicherheitshinweise).</li>
+      <li><strong>Entzündbar oder entzündend?</strong> Entzündbar (Flamme) heißt: Der Stoff brennt selbst. Entzündend bzw. brandfördernd (Flamme über Kreis) heißt: Der Stoff gibt meist Sauerstoff ab und lässt andere Stoffe heftiger brennen.</li>
+      <li><strong>Mindergiftig</strong> ist ein älterer Begriff. Heute sagt man beim Ausrufezeichen „gesundheitsschädlich“ oder „reizend“.</li>
+      <li><strong>K, M, R</strong> steht für karzinogen (krebserzeugend), keimzellmutagen (verändert das Erbgut) und reproduktionstoxisch (schadet der Fortpflanzung oder dem ungeborenen Kind).</li>
+      <li><strong>Ätzend</strong> gilt für Haut, Augen und auch für Metalle.</li>
+      <li>Auf dem Etikett stehen außerdem das <strong>Signalwort</strong> („Gefahr“ oder „Achtung“), <strong>H-Sätze</strong> (Gefahrenhinweise) und <strong>P-Sätze</strong> (Sicherheitshinweise).</li>
+      <li><strong>Merkhilfe:</strong> Roter Rahmen, weiße Raute, schwarzes Bild. So sehen alle 9 Symbole aus.</li>
     </ul>
-    <p class="small">Diese Seite dient dem Lernen und ersetzt nicht das Sicherheitsdatenblatt (SDB) oder die Betriebsanweisung. Im Zweifel: Etikett und SDB lesen, Lehrkraft / Vorgesetzte fragen.</p>
+    <p class="small">Diese Seite ist zum Lernen gedacht. Im Labor gelten immer das Sicherheitsdatenblatt und die Anweisungen deiner Lehrkraft.</p>
   </section>
-</main>
 
-<footer>Lernseite zu GHS/CLP-Piktogrammen · Alle Angaben ohne Gewähr</footer>
-<script src="app.js"></script>
+  <footer>Gefahrensymbole nach GHS/CLP · Symbole vereinfacht nachgezeichnet · Angaben ohne Gewähr</footer>
+</div>
+
+<script>
+'use strict';
+const F = 'fill="#000"';
+const S = 'stroke="#000" stroke-linecap="round" stroke-linejoin="round"';
+const FLAME = 'M50 20C58 34 70 42 66 58C64 68 57 74 50 74C42 74 35 68 34 59C33 50 40 46 43 38C46 44 48 46 52 46C54 38 50 30 50 20Z';
+const flame = tf => `<g transform="${tf}"><path ${F} d="${FLAME}"/><path fill="#fff" d="M50 50C55 56 58 60 56 66C55 70 52 72 50 72C47 72 44 70 44 66C44 60 47 58 50 50Z"/></g>`;
+const burst = (cx, cy, ro, ri, n) => {
+  const pts = [];
+  for (let i = 0; i < n * 2; i++) {
+    const r = i % 2 ? ri : ro, a = Math.PI * i / n - Math.PI / 2;
+    pts.push((cx + r * Math.cos(a)).toFixed(1) + ',' + (cy + r * Math.sin(a)).toFixed(1));
+  }
+  return `<polygon ${F} points="${pts.join(' ')}"/>`;
+};
+const ICONS = {
+  GHS01: burst(56, 38, 20, 8, 8) + `<circle cx="40" cy="64" r="14" ${F}/><path d="M48 55L52 48" ${S} stroke-width="4" fill="none"/>`,
+  GHS02: flame('translate(0 2)') + `<rect x="30" y="78" width="40" height="4" ${F}/>`,
+  GHS03: flame('translate(50 18) scale(.62) translate(-50 -20)') + `<circle cx="50" cy="68" r="11" fill="none" ${S} stroke-width="6"/><rect x="34" y="80" width="32" height="4" ${F}/>`,
+  GHS04: `<g transform="rotate(45 50 50)"><rect x="36" y="38" width="28" height="44" rx="12" ${F}/><rect x="45" y="24" width="10" height="18" ${F}/><rect x="40" y="20" width="20" height="6" rx="2" ${F}/></g>`,
+  GHS05: `<path d="M24 24L40 34L36 42L20 32Z" ${F}/><path d="M50 22L64 32L58 40L46 30Z" ${F}/><circle cx="31" cy="49" r="3" ${F}/><circle cx="38" cy="56" r="2.5" ${F}/><circle cx="55" cy="47" r="3" ${F}/><circle cx="60" cy="55" r="2.5" ${F}/><path d="M16 66H46V74H16Z" ${F}/><path d="M22 66l3-5 3 5M32 66l2-4 3 4" fill="#fff"/><path ${F} d="M58 74L58 60L62 52L65 58L66 49L70 50L70 58L74 55L78 58L76 70L68 78Z"/>`,
+  GHS06: `<circle cx="50" cy="38" r="17" ${F}/><rect x="42" y="48" width="16" height="14" rx="2" ${F}/><circle cx="43" cy="38" r="4.5" fill="#fff"/><circle cx="57" cy="38" r="4.5" fill="#fff"/><path d="M48 47l2-4 2 4z" fill="#fff"/><path d="M26 56L74 80M74 56L26 80" ${S} stroke-width="6" fill="none"/><circle cx="25" cy="55" r="4" ${F}/><circle cx="75" cy="55" r="4" ${F}/><circle cx="25" cy="81" r="4" ${F}/><circle cx="75" cy="81" r="4" ${F}/>`,
+  GHS07: `<path ${F} d="M44 22H56L54 58H46Z"/><circle cx="50" cy="71" r="6.5" ${F}/>`,
+  GHS08: `<circle cx="50" cy="28" r="9" ${F}/><path ${F} d="M24 78V60C24 46 34 40 50 40C66 40 76 46 76 60V78Z"/><polygon fill="#fff" points="50,48 53,56 62,56 55,61 58,69 50,64 42,69 45,61 38,56 47,56"/>`,
+  GHS09: `<path d="M22 78H78" ${S} stroke-width="3" fill="none"/><path d="M33 78V48M33 62L24 52M33 56L42 46M33 50L30 40M33 68L40 60" ${S} stroke-width="4" fill="none"/><ellipse cx="62" cy="66" rx="13" ry="7" ${F}/><polygon points="74,66 83,58 83,74" ${F}/><circle cx="55" cy="64" r="2" fill="#fff"/><path d="M52 52c4-3 10-3 14 0" ${S} stroke-width="2" fill="none"/>`
+};
+const svg = (code, label) => `<svg viewBox="0 0 100 100" role="img" aria-label="${label || 'Gefahrensymbol'}"><polygon points="50,3 97,50 50,97 3,50" fill="#fff" stroke="#d0021b" stroke-width="5"/>${ICONS[code]}</svg>`;
+
+// Reihenfolge und Wortlaut wie auf dem Arbeitsblatt
+const DATA = [
+  { code: 'GHS01', name: 'Explosiv', short: 'explosiv',
+    meaning: 'Der Stoff kann durch Schlag, Reibung, Wärme oder Funken explodieren.',
+    examples: ['Feuerwerkskörper', 'Nitroglycerin', 'trockene Pikrinsäure'],
+    tips: ['Nicht stoßen, reiben oder erhitzen', 'Von Zündquellen fernhalten'] },
+  { code: 'GHS02', name: 'Entzündbar', short: 'entzündbar',
+    meaning: 'Der Stoff brennt selbst leicht: entzündbare Gase, Flüssigkeiten, Feststoffe und Sprays.',
+    examples: ['Ethanol (Spiritus)', 'Aceton', 'Benzin', 'Feuerzeuggas'],
+    tips: ['Fern von Flammen, Funken und Hitze', 'Nicht rauchen', 'Gut lüften'] },
+  { code: 'GHS03', name: 'Entzündend (brandfördernd)', short: 'entzündend (brandfördernd)',
+    meaning: 'Der Stoff gibt meist Sauerstoff ab und lässt andere Stoffe stärker brennen.',
+    examples: ['Wasserstoffperoxid (konzentriert)', 'Kaliumpermanganat', 'Sauerstoff'],
+    tips: ['Getrennt von brennbaren Stoffen lagern', 'Kein Kontakt mit Öl oder Fett'] },
+  { code: 'GHS06', name: 'Giftig', short: 'giftig',
+    meaning: 'Schon kleine Mengen können beim Verschlucken, Einatmen oder über die Haut lebensgefährlich sein.',
+    examples: ['Methanol', 'Kaliumcyanid', 'Quecksilberverbindungen'],
+    tips: ['Kontakt unbedingt vermeiden', 'Nur mit Schutzausrüstung und im Abzug arbeiten'] },
+  { code: 'GHS07', name: 'Reizung (Augen, Haut), evtl. mindergiftig', short: 'Reizung / mindergiftig', merk: ['Reizung (Augen, Haut)', 'evtl. mindergiftig'],
+    meaning: 'Reizt Haut, Augen oder Atemwege, kann Allergien auslösen oder ist gesundheitsschädlich.',
+    examples: ['Isopropanol', 'Waschmittel', 'Ethylacetat'],
+    tips: ['Dämpfe nicht einatmen', 'Handschuhe und Schutzbrille tragen'] },
+  { code: 'GHS08', name: 'K, M, R – sehr gefährliche Stoffe', short: 'K, M, R', merk: ['K – karzinogen', 'M – keimzellmutagen', 'R – reproduktionstoxisch'],
+    meaning: 'Kann Krebs erzeugen, das Erbgut verändern, die Fortpflanzung schädigen oder Organe schwer schädigen. Die Wirkung kommt oft erst nach langer Zeit.',
+    examples: ['Benzol', 'Formaldehyd', 'Asbest', 'Bleiverbindungen'],
+    tips: ['Kontakt so weit wie möglich vermeiden', 'Für Schwangere und Jugendliche gelten besondere Verbote'] },
+  { code: 'GHS05', name: 'Hautätzend, schwere Augenschädigung', short: 'hautätzend / Augenschädigung', merk: ['hautätzend', 'schwere Augenschädigung'],
+    meaning: 'Zerstört Haut und Augen und greift Metalle an.',
+    examples: ['Salzsäure', 'Natronlauge', 'Rohrreiniger'],
+    tips: ['Schutzbrille und Handschuhe tragen', 'Bei Augenkontakt sofort mehrere Minuten spülen und zum Arzt'] },
+  { code: 'GHS04', name: 'Unter Druck stehende Gase', short: 'unter Druck stehende Gase',
+    meaning: 'Gas in einer Flasche unter hohem Druck. Bei Hitze kann sie platzen. Tiefkalte Gase verursachen Kälteverbrennungen.',
+    examples: ['Gasflaschen mit CO₂ oder Argon', 'flüssiger Stickstoff'],
+    tips: ['Flaschen gegen Umfallen sichern', 'Vor Sonne und Hitze schützen'] },
+  { code: 'GHS09', name: 'Gewässergefährdend', short: 'gewässergefährdend',
+    meaning: 'Schädlich für Fische und andere Lebewesen im Wasser, oft lange anhaltend.',
+    examples: ['Pflanzenschutzmittel', 'Kupfersalze', 'Schwermetallverbindungen'],
+    tips: ['Nie in den Ausguss gießen', 'Als Sondermüll entsorgen'] }
+];
+const byCode = Object.fromEntries(DATA.map(d => [d.code, d]));
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('ghs-' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('ghs-' + k, JSON.stringify(v)); } catch {} }
+};
+const merkHtml = d => d.merk ? `<div class="merk">${d.merk.map(m => `<span>${esc(m)}</span>`).join('')}</div>` : '';
+
+$('strip').innerHTML = DATA.map(d => svg(d.code)).join('');
+
+// Reiter
+const TABS = ['uebersicht', 'lernen', 'quiz', 'wissen'];
+function showTab(p) {
+  if (!TABS.includes(p)) p = 'uebersicht';
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.p === p));
+  TABS.forEach(id => { $(id).hidden = id !== p; });
+  store.set('tab', p);
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.p)));
+
+// Übersicht
+let selected = 'GHS01';
+function renderSheet() {
+  $('sheet').innerHTML = DATA.map(d => `<button class="tile" data-c="${d.code}" aria-pressed="${d.code === selected}">${svg(d.code, d.name)}<span class="lbl">${esc(d.short)}</span></button>`).join('');
+  $('sheet').querySelectorAll('.tile').forEach(b => b.addEventListener('click', () => {
+    selected = b.dataset.c; renderSheet(); renderDetail();
+    if (matchMedia('(max-width:760px)').matches) $('detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+}
+function renderDetail() {
+  const d = byCode[selected];
+  $('detail').innerHTML = `
+    <div class="dh">${svg(d.code, d.name)}<div><div class="code">${d.code}</div><h2>${esc(d.name)}</h2></div></div>
+    ${merkHtml(d)}
+    <h3>Bedeutung</h3><p>${esc(d.meaning)}</p>
+    <h3>Beispiele</h3><p>${d.examples.map(esc).join(', ')}</p>
+    <h3>So gehst du damit um</h3><ul>${d.tips.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+}
+
+// Lernkarten: „Nochmal üben“ legt die Karte hinten an, „Gewusst“ nimmt sie heraus
+let deck = [], known = 0, flipped = false;
+function startDeck() { deck = shuffle(DATA.map(d => d.code)); known = 0; flipped = false; renderFlash(); }
+function renderFlash() {
+  const total = DATA.length;
+  if (!deck.length) {
+    $('flashbox').innerHTML = `<div class="done"><strong>Alle 9 gewusst!</strong><p>Teste dich jetzt im Quiz.</p><div class="row" style="justify-content:center"><button class="btn primary" id="f-again">Nochmal von vorn</button><button class="btn" id="f-quiz">Zum Quiz</button></div></div>`;
+    $('f-again').onclick = startDeck;
+    $('f-quiz').onclick = () => showTab('quiz');
+    return;
+  }
+  const d = byCode[deck[0]];
+  $('flashbox').innerHTML = `
+    <div class="meta"><span>Gewusst: ${known} / ${total}</span><span>Noch im Stapel: ${deck.length}</span></div>
+    <div class="bar"><i style="width:${known / total * 100}%"></i></div>
+    <div class="card${flipped ? ' flipped' : ''}" id="fcard" tabindex="0" role="button" aria-label="Karte umdrehen">
+      <div class="card-in">
+        <div class="face">${svg(d.code, 'Welches Symbol ist das?')}<span class="code">Was bedeutet dieses Symbol?</span></div>
+        <div class="face back"><h2>${esc(d.name)}</h2>${merkHtml(d)}<p>${esc(d.meaning)}</p></div>
+      </div>
+    </div>
+    <div class="row">
+      ${flipped
+        ? `<button class="btn" id="f-no">Nochmal üben</button><button class="btn primary" id="f-yes">Gewusst</button>`
+        : `<button class="btn primary" id="f-flip">Umdrehen</button>`}
+    </div>
+    <p class="hint"><kbd>Leertaste</kbd> umdrehen · <kbd>1</kbd> nochmal üben · <kbd>2</kbd> gewusst</p>`;
+  $('fcard').onclick = flip;
+  if (flipped) { $('f-no').onclick = () => answer(false); $('f-yes').onclick = () => answer(true); }
+  else $('f-flip').onclick = flip;
+}
+function flip() {
+  flipped = !flipped;
+  $('fcard').classList.toggle('flipped', flipped);
+  setTimeout(renderFlash, 250);
+}
+function answer(ok) {
+  const c = deck.shift();
+  if (ok) known++; else deck.push(c);
+  flipped = false; renderFlash();
+}
+
+// Quiz: eine Runde fragt jedes Symbol einmal ab
+let mode = store.get('mode', 'sym'), qs = [], qi = 0, score = 0, mistakes = [], locked = false;
+function setMode(m) {
+  mode = m === 'name' ? 'name' : 'sym'; store.set('mode', mode);
+  document.querySelectorAll('.modes .btn').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
+  startQuiz();
+}
+document.querySelectorAll('.modes .btn').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+function startQuiz() { qs = shuffle(DATA.map(d => d.code)); qi = 0; score = 0; mistakes = []; renderQ(); }
+function renderQ() {
+  locked = false;
+  if (qi >= qs.length) return renderResult();
+  const d = byCode[qs[qi]];
+  const opts = shuffle([d.code, ...shuffle(DATA.filter(x => x !== d).map(x => x.code)).slice(0, 3)]);
+  const prompt = mode === 'sym'
+    ? `<div class="q-symbol">${svg(d.code, 'Welches Symbol ist das?')}</div>`
+    : `<div class="q-name">${esc(d.name)}</div>`;
+  const list = mode === 'sym'
+    ? `<div class="opts">${opts.map((c, i) => `<button class="opt" data-c="${c}"><span class="k">${i + 1}</span>${esc(byCode[c].name)}</button>`).join('')}</div>`
+    : `<div class="opts pics">${opts.map((c, i) => `<button class="opt" data-c="${c}" aria-label="Antwort ${i + 1}">${svg(c, 'Antwort ' + (i + 1))}<span class="k">${i + 1}</span></button>`).join('')}</div>`;
+  $('quizbox').innerHTML = `
+    <div class="meta"><span>Frage ${qi + 1} von ${qs.length}</span><span>Richtig: ${score}</span></div>
+    <div class="bar"><i style="width:${qi / qs.length * 100}%"></i></div>
+    ${prompt}${list}
+    <div class="feedback" id="fb" aria-live="polite"></div>
+    <div class="row"><button class="btn primary" id="q-next" hidden>Weiter</button></div>`;
+  $('quizbox').querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => pick(b.dataset.c)));
+}
+function pick(c) {
+  if (locked) return;
+  locked = true;
+  const right = qs[qi], ok = c === right;
+  if (ok) score++; else mistakes.push(right);
+  $('quizbox').querySelectorAll('.opt').forEach(b => {
+    b.disabled = true;
+    if (b.dataset.c === right) b.classList.add('right');
+    else if (b.dataset.c === c) b.classList.add('wrong');
+  });
+  const fb = $('fb');
+  fb.className = 'feedback ' + (ok ? 'ok' : 'no');
+  fb.textContent = ok ? 'Richtig!' : `Leider falsch. Richtig ist: ${byCode[right].name}`;
+  const next = $('q-next');
+  next.hidden = false;
+  next.textContent = qi + 1 < qs.length ? 'Weiter' : 'Ergebnis anzeigen';
+  next.onclick = () => { qi++; renderQ(); };
+  next.focus();
+}
+function renderResult() {
+  const key = 'best-' + mode, best = Math.max(store.get(key, 0), score);
+  store.set(key, best);
+  const msg = score === qs.length ? 'Perfekt! Du kennst alle Symbole.'
+    : score >= 7 ? 'Sehr gut, fast alles richtig.'
+    : score >= 5 ? 'Gut. Übe die Fehler unten noch einmal.'
+    : 'Schau dir die Übersicht noch einmal an und versuch es wieder.';
+  $('quizbox').innerHTML = `<div class="result">
+    <div class="big">${score} / ${qs.length}</div>
+    <p>${msg}</p>
+    <p class="small">Bestes Ergebnis in diesem Modus: ${best} / ${qs.length}</p>
+    ${mistakes.length ? `<div class="mistakes">${mistakes.map(c => `<div>${svg(c, byCode[c].name)}<strong>${esc(byCode[c].name)}</strong></div>`).join('')}</div>` : ''}
+    <div class="row" style="justify-content:center"><button class="btn primary" id="q-again">Neue Runde</button></div>
+  </div>`;
+  $('q-again').onclick = startQuiz;
+}
+
+// Tastatur
+document.addEventListener('keydown', e => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (!$('lernen').hidden && deck.length) {
+    if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); flip(); }
+    else if (flipped && e.key === '1') answer(false);
+    else if (flipped && e.key === '2') answer(true);
+  }
+  if (!$('quiz').hidden && !locked) {
+    const n = parseInt(e.key, 10), opts = $('quizbox').querySelectorAll('.opt');
+    if (n >= 1 && n <= opts.length) opts[n - 1].click();
+  }
+});
+
+renderSheet(); renderDetail();
+startDeck();
+setMode(mode);
+showTab(location.hash.slice(1) || store.get('tab', 'uebersicht'));
+</script>
 </body>
 </html>
