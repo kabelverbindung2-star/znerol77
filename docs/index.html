@@ -308,6 +308,7 @@ const DATA = [
   { code: 'GHS01', name: 'Explosiv', short: 'Explosiv',
     accept: ['explosiv', 'explosionsgefährlich', 'explodierend', 'explosionsfähig'],
     near: ['explosion', 'explosionsgefahr', 'explodiert', 'sprengstoff', 'sprengfähig'],
+    keys: [['explo']],
     meaning: 'Der Stoff kann durch Schlag, Reibung, Wärme oder Funken explodieren.',
     examples: ['Feuerwerkskörper', 'Nitroglycerin', 'trockene Pikrinsäure'],
     tips: ['Nicht stoßen, reiben oder erhitzen', 'Von Zündquellen fernhalten'] },
@@ -320,6 +321,7 @@ const DATA = [
   { code: 'GHS03', name: 'Entzündend (brandfördernd)', short: 'Entzündend',
     accept: ['entzündend', 'brandfördernd', 'entzündend brandfördernd', 'oxidierend'],
     near: ['oxidationsmittel', 'feuerfördernd', 'brandverstärkend', 'sauerstoffabgebend'],
+    keys: [['brand', 'ford']],
     meaning: 'Der Stoff gibt meist Sauerstoff ab und lässt andere Stoffe stärker brennen.',
     examples: ['Wasserstoffperoxid (konzentriert)', 'Kaliumpermanganat', 'Sauerstoff'],
     tips: ['Getrennt von brennbaren Stoffen lagern', 'Kein Kontakt mit Öl oder Fett'] },
@@ -333,6 +335,7 @@ const DATA = [
     merk: ['Reizung (Augen, Haut)', 'evtl. mindergiftig'],
     accept: ['reizung', 'reizend', 'mindergiftig', 'gesundheitsschädlich', 'reizung augen haut', 'reizung mindergiftig'],
     near: ['reizt', 'reizstoff', 'hautreizend', 'augenreizend', 'reizt haut und augen', 'schädlich', 'minder giftig'],
+    keys: [['reiz'], ['mindergift']],
     meaning: 'Reizt Haut, Augen oder Atemwege, kann Allergien auslösen oder ist gesundheitsschädlich.',
     examples: ['Isopropanol', 'Waschmittel', 'Ethylacetat'],
     tips: ['Dämpfe nicht einatmen', 'Handschuhe und Schutzbrille tragen'] },
@@ -340,6 +343,7 @@ const DATA = [
     merk: ['K – karzinogen', 'M – keimzellmutagen', 'R – reproduktionstoxisch'],
     accept: ['kmr', 'karzinogen', 'kanzerogen', 'keimzellmutagen', 'reproduktionstoxisch', 'krebserzeugend', 'sehr gefährliche stoffe', 'gesundheitsgefahr', 'gesundheitsgefährdend'],
     near: ['krebserregend', 'krebs', 'mutagen', 'erbgutverändernd', 'fortpflanzungsgefährdend', 'fruchtschädigend', 'cmr', 'sehr gefährlich'],
+    keys: [['krebs'], ['erbgut'], ['fortpflanz'], ['karzino'], ['kanzero'], ['mutagen'], ['reprodukt']],
     meaning: 'Kann Krebs erzeugen, das Erbgut verändern, die Fortpflanzung schädigen oder Organe schwer schädigen. Die Wirkung zeigt sich oft erst nach langer Zeit.',
     examples: ['Benzol', 'Formaldehyd', 'Asbest', 'Bleiverbindungen'],
     tips: ['Kontakt so weit wie möglich vermeiden', 'Für Schwangere und Jugendliche gelten besondere Verbote'] },
@@ -347,18 +351,21 @@ const DATA = [
     merk: ['hautätzend', 'schwere Augenschädigung'],
     accept: ['hautätzend', 'ätzend', 'schwere augenschädigung', 'augenschädigung', 'korrosiv', 'hautätzend schwere augenschädigung'],
     near: ['augenschädlich', 'augenschädigend', 'augenschaden', 'verätzend', 'ätzt', 'ätzwirkung', 'augen schädigend', 'haut ätzend'],
+    keys: [['atz'], ['auge', 'schad']],
     meaning: 'Zerstört Haut und Augen und greift Metalle an.',
     examples: ['Salzsäure', 'Natronlauge', 'Rohrreiniger'],
     tips: ['Schutzbrille und Handschuhe tragen', 'Bei Augenkontakt sofort mehrere Minuten spülen und zum Arzt'] },
   { code: 'GHS04', name: 'Unter Druck stehende Gase', short: 'Gase unter Druck',
     accept: ['unter druck stehende gase', 'unter druck stehendes gas', 'gase unter druck', 'gas unter druck', 'unter druck'],
     near: ['druckgas', 'druckgase', 'gasflasche', 'druckgasflasche', 'komprimierte gase', 'komprimiertes gas', 'druckbehälter'],
+    keys: [['druck', 'gas']],
     meaning: 'Gas in einer Flasche unter hohem Druck. Bei Hitze kann sie platzen. Tiefkalte Gase verursachen Kälteverbrennungen.',
     examples: ['Gasflaschen mit CO₂ oder Argon', 'flüssiger Stickstoff'],
     tips: ['Flaschen gegen Umfallen sichern', 'Vor Sonne und Hitze schützen'] },
   { code: 'GHS09', name: 'Gewässergefährdend', short: 'Gewässergefährdend',
     accept: ['gewässergefährdend', 'umweltgefährlich', 'umweltgefährdend'],
     near: ['umweltschädlich', 'wassergefährdend', 'gewässerschädlich', 'fischgiftig', 'giftig für fische', 'giftig für wasserorganismen'],
+    keys: [['gewasser', 'gefahr'], ['gewasser', 'schad'], ['umwelt'], ['fisch'], ['wasser', 'gefahr']],
     meaning: 'Schädlich für Fische und andere Lebewesen im Wasser, oft lange anhaltend.',
     examples: ['Pflanzenschutzmittel', 'Kupfersalze', 'Schwermetallverbindungen'],
     tips: ['Nie in den Ausguss gießen', 'Als Sondermüll entsorgen'] }
@@ -506,7 +513,11 @@ function checkTyped(raw, d) {
   const n = matchList(parts, d.nearN);
   if (n === 'exact') return 'near';
   if (a === 'typo') return 'typo';
-  return n ? 'near' : 'wrong';
+  if (n) return 'near';
+  // Sinngemäß richtig, wenn alle entscheidenden Wortteile vorkommen (z. B. „Druck“ und „Gas“)
+  const whole = norm(raw);
+  if ((d.keys || []).some(k => k.every(stem => whole.includes(stem)))) return 'near';
+  return 'wrong';
 }
 
 // Quiz
