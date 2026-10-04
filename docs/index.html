@@ -715,18 +715,38 @@ const UNITS = { s: { ms: 1000, one: 'Sekunde', many: 'Sekunden', short: 's' }, m
 const PRESETS = [[30, 's'], [1, 'm'], [2, 'm'], [5, 'm'], [15, 'm'], [30, 'm'], [1, 'h']];
 const COUNTS_A = [1, 2, 3, 5];
 const RINGS = [['0', '1×'], ['10', '10 s'], ['30', '30 s'], ['60', '1 min'], ['600', 'Bis ich komme']];
-const AL = Object.assign({ amount: 2, unit: 'm', count: 1, level: 'mix', sound: 'gong', vol: 0.7, ring: '30' }, store.get('alarm', {}));
+const AL = Object.assign({ amount: 2, unit: 'm', mode: 'fixed', minA: 1, minU: 'm', maxA: 5, maxU: 'm', reveal: false, count: 1, level: 'mix', sound: 'gong', vol: 0.7, ring: '30' }, store.get('alarm', {}));
 if (AL.minutes && !store.get('alarm', {}).amount) { AL.amount = AL.minutes; AL.unit = 'm'; }
 delete AL.minutes; delete AL.repeat;
 if (!UNITS[AL.unit]) AL.unit = 'm';
+if (AL.mode !== 'random') AL.mode = 'fixed';
+if (!UNITS[AL.minU]) AL.minU = 'm';
+if (!UNITS[AL.maxU]) AL.maxU = 'm';
 if (!RINGS.some(r => r[0] === AL.ring)) AL.ring = '30';
-let alarmOn = false, awayMs = 0, lastTick = Date.now(), pendingQ = null, blinkTimer = null, actx = null, lastAlarmCode = null;
+let targetMs = 0, alarmOn = false, awayMs = 0, lastTick = Date.now(), pendingQ = null, blinkTimer = null, actx = null, lastAlarmCode = null;
 const aStats = store.get('alarm-stats', { right: 0, total: 0 });
 const saveAL = () => store.set('alarm', AL);
 const intervalMs = () => Math.min(24 * 3600000, Math.max(10000, AL.amount * UNITS[AL.unit].ms));
-const intervalLabel = () => `${AL.amount} ${AL.amount === 1 ? UNITS[AL.unit].one : UNITS[AL.unit].many}`;
+const clampMs = ms => Math.min(24 * 3600000, Math.max(10000, ms));
+const amountLabel = (a, u) => `${a} ${a === 1 ? UNITS[u].one : UNITS[u].many}`;
+const intervalLabel = () => amountLabel(AL.amount, AL.unit);
+// Zufallsmodus: frühestens/spätestens; vertauschte Eingaben werden sortiert
+const randRange = () => { const a = clampMs(AL.minA * UNITS[AL.minU].ms), b = clampMs(AL.maxA * UNITS[AL.maxU].ms); return a <= b ? [a, b] : [b, a]; };
+function newTarget() {
+  if (AL.mode === 'random') { const [a, b] = randRange(); targetMs = Math.round(a + Math.random() * (b - a)); }
+  else targetMs = intervalMs();
+}
+function resetCycle() { awayMs = 0; newTarget(); }
+newTarget();
 const isAway = () => document.hidden || !document.hasFocus();
 const pad = n => String(n).padStart(2, '0');
+// lesbare Dauer, z. B. „90 Sekunden“, „5 Minuten“, „1,5 Stunden“
+const fmtLong = ms => {
+  const s = ms / 1000, m = s / 60, h = m / 60, n = x => String(+x.toFixed(1)).replace('.', ',');
+  if (s < 60) return `${Math.round(s)} Sekunden`;
+  if (m < 60) return m === 1 ? '1 Minute' : `${n(m)} Minuten`;
+  return h === 1 ? '1 Stunde' : `${n(h)} Stunden`;
+};
 const fmt = ms => { const t = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60; return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`; };
 
 // Töne werden im Browser erzeugt; der AudioContext entsteht beim Klick auf „Wecker starten“
@@ -870,7 +890,7 @@ function alarmFeedback(ok, title, extra) {
   renderAlarm();
 }
 // Schließen (auch mit Esc oder „Später“) startet die Zeit von vorn
-adlg.addEventListener('close', () => { pendingQ = null; awayMs = 0; stopRing(); titleBlink(false); updateAlarmUI(); });
+adlg.addEventListener('close', () => { pendingQ = null; resetCycle(); stopRing(); titleBlink(false); updateAlarmUI(); });
 adlg.addEventListener('keydown', e => {
   const q = curItem();
   if (!q || q.done || q.lv === 3) return;
@@ -880,16 +900,25 @@ adlg.addEventListener('keydown', e => {
 
 function renderAlarm() {
   const segs = (k, items, cur) => `<div class="seg" role="group" data-k="${k}">${items.map(([v, l]) => `<button data-v="${v}" aria-pressed="${String(v) === String(cur)}">${l}</button>`).join('')}</div>`;
+  const unitSel = (id, cur) => `<select id="${id}" aria-label="Einheit">${Object.entries(UNITS).map(([k, u]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${u.many}</option>`).join('')}</select>`;
   const presetCur = PRESETS.some(([a, u]) => a === AL.amount && u === AL.unit) ? `${AL.amount}${AL.unit}` : '';
   $('alarm').innerHTML = `
     <div class="alarm-status" id="a-status"><div class="clock" id="a-clock"></div><div class="st"><b id="a-state"></b><span id="a-sub"></span></div></div>
     <div class="set"><div class="set-l">Wie oft?<small>Zeit, die du weg bist</small></div><div>
-      ${segs('preset', PRESETS.map(([a, u]) => [`${a}${u}`, `${a} ${UNITS[u].short}`]), presetCur)}
+      ${segs('mode', [['fixed', 'Feste Zeit'], ['random', '🎲 Zufällig']], AL.mode)}
+      ${AL.mode === 'random' ? `
+      <div class="custom"><label for="a-minA">Frühestens nach</label>
+        <input type="number" id="a-minA" min="1" max="999" step="1" value="${AL.minA}" inputmode="numeric">${unitSel('a-minU', AL.minU)}</div>
+      <div class="custom"><label for="a-maxA">Spätestens nach</label>
+        <input type="number" id="a-maxA" min="1" max="999" step="1" value="${AL.maxA}" inputmode="numeric">${unitSel('a-maxU', AL.maxU)}</div>
+      <div class="custom">Restzeit anzeigen? ${segs('reveal', [['false', 'Nein, Überraschung'], ['true', 'Ja']], AL.reveal)}</div>
+      <div class="custom-note" id="a-note"></div>
+      ` : `<div style="height:10px"></div>${segs('preset', PRESETS.map(([a, u]) => [`${a}${u}`, `${a} ${UNITS[u].short}`]), presetCur)}
       <div class="custom"><label for="a-amount">Eigene Zeit:</label>
         <input type="number" id="a-amount" min="1" max="999" step="1" value="${AL.amount}" inputmode="numeric">
-        <select id="a-unit" aria-label="Einheit">${Object.entries(UNITS).map(([k, u]) => `<option value="${k}"${k === AL.unit ? ' selected' : ''}>${u.many}</option>`).join('')}</select>
+        ${unitSel('a-unit', AL.unit)}
       </div>
-      <div class="custom-note" id="a-note"></div>
+      <div class="custom-note" id="a-note"></div>`}
     </div></div>
     <div class="set"><div class="set-l">Wie viele Fragen?<small>pro Klingeln</small></div>${segs('count', COUNTS_A.map(n => [n, n === 1 ? '1 Frage' : n + ' Fragen']), AL.count)}</div>
     <div class="set"><div class="set-l">Welche Stufe?</div>${segs('level', [['1', 'Stufe 1'], ['2', 'Stufe 2'], ['3', 'Stufe 3'], ['mix', 'Gemischt']], AL.level)}</div>
@@ -909,45 +938,56 @@ function renderAlarm() {
     </ul></div>`;
   $('alarm').querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     const k = g.dataset.k, v = b.dataset.v;
-    if (k === 'preset') { AL.amount = parseInt(v, 10); AL.unit = v.replace(/\d+/, ''); awayMs = Math.min(awayMs, intervalMs()); }
+    if (k === 'preset') { AL.amount = parseInt(v, 10); AL.unit = v.replace(/\d+/, ''); }
     else if (k === 'count') AL.count = +v;
+    else if (k === 'reveal') AL.reveal = v === 'true';
     else AL[k] = v;
     saveAL();
+    if (k === 'preset' || k === 'mode') { newTarget(); awayMs = Math.min(awayMs, targetMs); }
     if (k === 'sound') ringOnce();
     renderAlarm();
   })));
-  const setCustom = () => {
-    const n = Math.round(+$('a-amount').value);
-    if (n >= 1 && n <= 999) { AL.amount = n; AL.unit = $('a-unit').value; saveAL(); renderAlarm(); }
-    else $('a-amount').value = AL.amount;
-  };
-  $('a-amount').onchange = setCustom;
-  $('a-amount').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); setCustom(); } });
-  $('a-unit').onchange = setCustom;
+  // Eingabefelder: [Zahl-Feld, Einheit-Feld, Schlüssel Zahl, Schlüssel Einheit]
+  const fields = AL.mode === 'random' ? [['a-minA', 'a-minU', 'minA', 'minU'], ['a-maxA', 'a-maxU', 'maxA', 'maxU']] : [['a-amount', 'a-unit', 'amount', 'unit']];
+  fields.forEach(([nId, uId, nKey, uKey]) => {
+    const apply = () => {
+      const n = Math.round(+$(nId).value);
+      if (n >= 1 && n <= 999) { AL[nKey] = n; AL[uKey] = $(uId).value; saveAL(); newTarget(); awayMs = Math.min(awayMs, targetMs); renderAlarm(); }
+      else $(nId).value = AL[nKey];
+    };
+    $(nId).onchange = apply;
+    $(nId).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+    $(uId).onchange = apply;
+  });
   $('a-vol').oninput = e => { AL.vol = +e.target.value; saveAL(); };
   $('a-vol').onchange = ringOnce;
   $('a-test').onclick = ringOnce;
-  $('a-toggle').onclick = () => { alarmOn = !alarmOn; awayMs = 0; if (alarmOn) audio(); renderAlarm(); };
+  $('a-toggle').onclick = () => { alarmOn = !alarmOn; resetCycle(); if (alarmOn) audio(); renderAlarm(); };
   $('a-now').onclick = () => { audio(); fire(true); };
   updateAlarmUI();
 }
 function updateAlarmUI() {
-  const total = intervalMs(), left = total - awayMs, away = isAway();
+  const total = targetMs, left = total - awayMs, away = isAway();
+  const hide = AL.mode === 'random' && !AL.reveal;
   const pill = $('alarm-pill');
   pill.hidden = !alarmOn;
-  if (alarmOn) { $('pill-time').textContent = pendingQ ? 'Frage!' : fmt(left); pill.classList.toggle('paused', !away && !pendingQ); }
+  if (alarmOn) { $('pill-time').textContent = pendingQ ? 'Frage!' : hide ? '🎲' : fmt(left); pill.classList.toggle('paused', !away && !pendingQ); }
   if (!$('a-clock')) return;
   $('a-status').classList.toggle('on', alarmOn);
-  $('a-clock').textContent = fmt(alarmOn ? left : total);
+  $('a-clock').textContent = hide ? '🎲' : fmt(alarmOn ? left : total);
   $('a-state').innerHTML = `<span class="dot"></span>${alarmOn ? 'Wecker läuft' : 'Wecker ist aus'}`;
-  const qs = AL.count === 1 ? '1 Frage' : `${AL.count} Fragen`;
-  $('a-sub').textContent = !alarmOn ? `Klingelt, wenn du ${intervalLabel()} weg warst. Dann kommen ${qs}.`
+  const qs = AL.count === 1 ? 'kommt 1 Frage' : `kommen ${AL.count} Fragen`;
+  const [ra, rb] = randRange();
+  const when = AL.mode === 'random' ? `irgendwann zwischen ${fmtLong(ra)} und ${fmtLong(rb)} Abwesenheit` : `wenn du ${intervalLabel()} weg warst`;
+  $('a-sub').textContent = !alarmOn ? `Klingelt${AL.mode === 'random' ? '' : ','} ${when}. Dann ${qs}.`
     : pendingQ ? 'Fragen warten auf dich.'
-    : away ? 'Du bist weg, die Zeit läuft.'
+    : away ? (AL.mode === 'random' ? `Du bist weg, es klingelt ${when}.` : 'Du bist weg, die Zeit läuft.')
     : 'Pause, solange du auf dieser Seite bist.';
   const note = $('a-note');
-  if (note) note.textContent = AL.amount * UNITS[AL.unit].ms < 10000 ? 'Kürzer als 10 Sekunden geht nicht, es werden 10 Sekunden verwendet.'
-    : AL.amount * UNITS[AL.unit].ms > 24 * 3600000 ? 'Länger als 24 Stunden geht nicht, es werden 24 Stunden verwendet.' : '';
+  const raw = AL.mode === 'random' ? [AL.minA * UNITS[AL.minU].ms, AL.maxA * UNITS[AL.maxU].ms] : [AL.amount * UNITS[AL.unit].ms];
+  if (note) note.textContent = Math.min(...raw) < 10000 ? 'Kürzer als 10 Sekunden geht nicht, es werden 10 Sekunden verwendet.'
+    : Math.max(...raw) > 24 * 3600000 ? 'Länger als 24 Stunden geht nicht, es werden 24 Stunden verwendet.'
+    : AL.mode === 'random' && raw[0] > raw[1] ? 'Frühestens ist größer als spätestens. Die beiden Zeiten werden einfach getauscht.' : '';
 }
 $('alarm-pill').onclick = () => show('wecker');
 setInterval(() => {
@@ -955,7 +995,7 @@ setInterval(() => {
   lastTick = now;
   if (alarmOn && !pendingQ && isAway()) {
     awayMs += dt;
-    if (awayMs >= intervalMs()) fire(false);
+    if (awayMs >= targetMs) fire(false);
   }
   updateAlarmUI();
 }, 1000);
